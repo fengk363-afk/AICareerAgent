@@ -300,10 +300,15 @@
           <div class="job-tags">
             <span v-if="job.source === 'gdrc'" class="tag gdrc">广东人才网</span>
             <span v-if="job.source === 'gd_public'" class="tag gd_public">公共招聘</span>
-            <span v-if="job.is_remote && !(job.tags || []).includes('远程')" class="tag remote">远程</span>
-            <span v-if="job.is_foreign && !(job.tags || []).includes('外企')" class="tag foreign">外企</span>
-            <span v-if="job.campus_recruitment && !(job.tags || []).includes('校招')" class="tag campus">校招</span>
-            <span v-if="job.season && !(job.tags || []).includes(seasonLabel(job.season))" class="tag season">{{ seasonLabel(job.season) }}</span>
+            <span v-if="job.is_remote && !hasNormalizedTag(job, '远程')" class="tag remote">远程</span>
+            <span v-if="job.is_foreign && !hasNormalizedTag(job, '外企')" class="tag foreign">外企</span>
+            <span v-if="job.campus_recruitment && !hasNormalizedTag(job, '校招')" class="tag campus">校招</span>
+            <span v-if="job.season && !hasNormalizedTag(job, seasonLabel(job.season))" class="tag season">{{ seasonLabel(job.season) }}</span>
+            <span
+              v-for="tag in getUniqueJobTags(job)"
+              :key="tag"
+              class="tag"
+            >{{ tag }}</span>
           </div>
         </div>
         <div class="job-title">{{ job.title }}</div>
@@ -556,6 +561,47 @@ export default {
     seasonLabel(season) {
       const map = { spring: '春招', autumn: '秋招', regular: '日常' }
       return map[season] || season
+    },
+
+    // 标签标准化：去除 emoji、特殊字符
+    normalizeTag(tag) {
+      if (!tag) return ''
+      // 去除 emoji 和特殊字符，只保留中文、英文、数字
+      return tag.replace(/[\u{1F000}-\u{1FFFF}]\u{FE0F}?[\u{20E3}]?|[\u{2700}-\u{27BF}]|·|•|✓|☆|→|—|–/gu, '').trim()
+    },
+
+    // 检查岗位是否已包含标准化后的标签
+    hasNormalizedTag(job, tagName) {
+      const normalizedTags = (job.tags || []).map(t => this.normalizeTag(t))
+      return normalizedTags.includes(this.normalizeTag(tagName))
+    },
+
+    // 获取去重后的岗位标签
+    getUniqueJobTags(job) {
+      const normalizedSet = new Set()
+      const result = []
+
+      // 先添加系统标签的标准化文本
+      const systemTags = []
+      if (job.source === 'gdrc') systemTags.push('广东人才网')
+      if (job.source === 'gd_public') systemTags.push('公共招聘')
+      if (job.is_remote) systemTags.push('远程')
+      if (job.is_foreign) systemTags.push('外企')
+      if (job.campus_recruitment) systemTags.push('校招')
+      if (job.season) systemTags.push(this.seasonLabel(job.season))
+
+      systemTags.forEach(tag => normalizedSet.add(this.normalizeTag(tag)))
+
+      // 再添加 job.tags 中未重复的标签
+      for (const tag of (job.tags || [])) {
+        const normalized = this.normalizeTag(tag)
+        if (normalized && !normalizedSet.has(normalized)) {
+          normalizedSet.add(normalized)
+          result.push(tag)
+        }
+      }
+
+      return result
     },
 
     // 地点筛选方法

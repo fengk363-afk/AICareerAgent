@@ -22,12 +22,12 @@
         <div class="detail-tags">
           <span v-if="job.source === 'gdrc'" class="tag gdrc">广东人才网</span>
           <span v-if="job.source === 'gd_public'" class="tag gd_public">公共招聘</span>
-          <span v-if="job.is_remote" class="tag remote">远程</span>
-          <span v-if="job.is_foreign" class="tag foreign">外企</span>
-          <span v-if="job.campus_recruitment" class="tag campus">校招</span>
-          <span v-if="job.season" class="tag season">{{ seasonLabel(job.season) }}</span>
-          <span v-if="job.company_type" class="tag company-type">{{ companyTypeLabel(job.company_type) }}</span>
-          <span v-if="job.company_country" class="tag country">{{ job.company_country }}</span>
+          <span v-if="job.is_remote && !hasNormalizedTag(job, '远程')" class="tag remote">远程</span>
+          <span v-if="job.is_foreign && !hasNormalizedTag(job, '外企')" class="tag foreign">外企</span>
+          <span v-if="job.campus_recruitment && !hasNormalizedTag(job, '校招')" class="tag campus">校招</span>
+          <span v-if="job.season && !hasNormalizedTag(job, seasonLabel(job.season))" class="tag season">{{ seasonLabel(job.season) }}</span>
+          <span v-if="job.company_type && !hasNormalizedTag(job, companyTypeLabel(job.company_type))" class="tag company-type">{{ companyTypeLabel(job.company_type) }}</span>
+          <span v-if="job.company_country && !hasNormalizedTag(job, job.company_country)" class="tag country">{{ job.company_country }}</span>
         </div>
       </div>
 
@@ -371,6 +371,19 @@ export default {
         government: '政府机构'
       }
       return map[type] || type
+    },
+
+    // 标签标准化：去除 emoji、特殊字符
+    normalizeTag(tag) {
+      if (!tag) return ''
+      // 去除 emoji 和特殊字符，只保留中文、英文、数字
+      return tag.replace(/[\u{1F000}-\u{1FFFF}]\u{FE0F}?[\u{20E3}]?|[\u{2700}-\u{27BF}]|·|•|✓|☆|→|—|–/gu, '').trim()
+    },
+
+    // 检查岗位是否已包含标准化后的标签
+    hasNormalizedTag(job, tagName) {
+      const normalizedTags = (job.tags || []).map(t => this.normalizeTag(t))
+      return normalizedTags.includes(this.normalizeTag(tagName))
     },
     jobTypeLabel(type) {
       const map = { full_time: '全职', internship: '实习', contract: '合同制', part_time: '兼职' }
