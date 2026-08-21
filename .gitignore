@@ -27,3 +27,4 @@ Thumbs.db
 # Test files
 test_files/*.pdf
 *.log
+CLAUDE.md
