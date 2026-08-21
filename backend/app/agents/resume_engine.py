@@ -30,13 +30,13 @@ class ResumeEngine:
             r'^学历', r'^学位',
         ],
         "experience": [
-            r'^工作(经历|经验)?\s*[:：]', r'^实习(经历|经验)?\s*[:：]',
+            r'^工作(经历|经验)?\s*[:：]?', r'^实习(经历|经验)?\s*[:：]?',
             r'^work(ing)?(experience)?\s*[:：]?', r'^employment', r'^career',
             r'^professional\s*experience', r'^experience\s*[:：]',
             r'^职业', r'^履历',
         ],
         "project": [
-            r'^项目(经历|经验)?\s*[:：]', r'^projects?\s*[:：]?', r'^project\s*experience',
+            r'^项目(经历|经验)?\s*[:：]?', r'^projects?\s*[:：]?', r'^project\s*experience',
             r'^personal\s*project', r'^portfolio',
             r'^课题', r'^作品',
         ],
