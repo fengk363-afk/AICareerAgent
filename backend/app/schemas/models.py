@@ -112,8 +112,13 @@ class JobCreate(BaseModel):
 class JobResponse(BaseModel):
     id: str
     source: str
+    source_name: Optional[str] = None
+    source_url: Optional[str] = None
+    source_type: Optional[str] = None
+    source_job_id: Optional[str] = None
     company: str
     company_type: Optional[str] = None
+    company_country: Optional[str] = None
     title: str
     location: str
     job_type: str
@@ -124,12 +129,18 @@ class JobResponse(BaseModel):
     tags: Optional[list] = None
     is_remote: bool
     is_foreign: bool
+    visa_support: bool
+    english_required: bool
+    graduate_program: bool
+    campus_recruitment: bool
+    season: Optional[str] = None
+    updated_time: Optional[datetime] = None
+    posted_at: Optional[datetime] = None
     apply_url: Optional[str] = None
-    job_url: Optional[str] = None  # 岗位来源链接
+    job_url: Optional[str] = None
     apply_source: Optional[str] = None
     company_website: Optional[str] = None
     application_method: Optional[str] = None
-    posted_at: Optional[datetime] = None
     created_at: datetime
 
     class Config:

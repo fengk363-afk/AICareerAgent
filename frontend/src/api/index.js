@@ -153,6 +153,19 @@ export const jobApi = {
   getJobStats: async () => {
     const res = await api.get('/jobs/source/stats')
     return res.data
+  },
+  syncJobs: async (sourceName = null) => {
+    const params = sourceName ? { source_name: sourceName } : {}
+    const res = await api.post('/jobs/source/sync', null, { params })
+    return res.data
+  },
+  listSources: async () => {
+    const res = await api.get('/jobs/source/sources')
+    return res.data
+  },
+  listAdapters: async () => {
+    const res = await api.get('/jobs/source/adapters')
+    return res.data
   }
 }
 

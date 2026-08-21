@@ -255,6 +255,16 @@ class JobSyncEngine:
                 db.add(job)
                 added += 1
 
+            # 调试输出：打印岗位关键信息
+            desc_len = len(job_data.get("description", ""))
+            req_len = len(job_data.get("requirements", []))
+            logger.info(
+                f"[{source_name}] {'新增' if not existing_job else '更新'}: "
+                f"title={job_data.get('title', '')}, "
+                f"description_len={desc_len}, "
+                f"requirements_count={req_len}"
+            )
+
         await db.commit()
         return added
 

@@ -43,8 +43,32 @@ class JobSourceEngine:
             "location": "北京",
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 25, "max": 45, "unit": "K/月"},
-            "description": "负责推荐系统后端服务开发，使用 Go/Python 构建高并发分布式系统",
-            "requirements": ["计算机相关专业", "熟悉 Go 或 Python", "了解数据结构与算法", "有实习经验者优先"],
+            "description": """【岗位职责】
+1. 负责推荐系统后端服务开发，使用 Go/Python 构建高并发分布式系统；
+2. 参与推荐算法的工程化落地，优化推荐效果和系统性能；
+3. 负责核心服务模块的设计与开发，保障系统高可用性和可扩展性；
+4. 参与技术架构演进，推动服务治理、监控告警等基础设施建设；
+5. 与算法、产品团队紧密协作，持续迭代优化推荐体验。
+
+【任职要求】
+1. 本科及以上学历，计算机相关专业，2025 届校招优先；
+2. 熟练掌握 Go 或 Python 至少一门编程语言，具备扎实的编程基础；
+3. 了解数据结构与算法，具备基本的系统设计能力；
+4. 熟悉 MySQL、Redis 等常用数据库，了解分布式系统基本原理；
+5. 有实习经验或实际项目经验者优先考虑。
+
+【福利待遇】
+1. 具有竞争力的薪酬（25-45K/月），股票期权；
+2. 五险一金、补充商业保险、年度体检；
+3. 弹性工作制，免费三餐、零食饮料；
+4. 扁平化管理，技术氛围浓厚，成长空间大。""",
+            "requirements": [
+                "本科及以上学历，计算机相关专业，2025 届校招优先",
+                "熟练掌握 Go 或 Python 至少一门编程语言，具备扎实的编程基础",
+                "了解数据结构与算法，具备基本的系统设计能力",
+                "熟悉 MySQL、Redis 等常用数据库，了解分布式系统基本原理",
+                "有实习经验或实际项目经验者优先考虑"
+            ],
             "preferred_skills": ["Go", "Python", "Redis", "Kafka", "MySQL", "Docker"],
             "tags": ["大厂", "核心技术", "成长快", "校招", "秋招"],
             "is_remote": False,
@@ -72,8 +96,32 @@ class JobSourceEngine:
             "location": "杭州",
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 25, "max": 40, "unit": "K/月"},
-            "description": "负责淘宝/天猫前端核心业务开发，使用 React 技术栈",
-            "requirements": ["计算机相关专业", "熟练掌握 React", "了解 TypeScript", "有项目经验者优先"],
+            "description": """【岗位职责】
+1. 负责淘宝/天猫前端核心业务开发，使用 React 技术栈构建高质量用户界面；
+2. 参与前端架构设计和性能优化，提升页面加载速度和用户体验；
+3. 与后端、设计团队紧密协作，完成复杂业务场景的前端实现；
+4. 推动前端工程化建设，制定开发规范和最佳实践；
+5. 参与技术选型和工具链建设，持续提升研发效率。
+
+【任职要求】
+1. 本科及以上学历，计算机相关专业，2025 届校招优先；
+2. 熟练掌握 React 前端框架，具备扎实的前端开发能力；
+3. 熟悉 TypeScript，了解前端工程化工具（Webpack/Vite）；
+4. 了解前端性能优化和跨浏览器兼容性处理；
+5. 有实际项目经验或实习经验者优先。
+
+【福利待遇】
+1. 具有竞争力的薪酬（25-40K/月），股票期权；
+2. 五险一金、补充商业保险、年度体检；
+3. 弹性工作制，免费三餐、下午茶；
+4. 技术氛围浓厚，定期技术分享和培训。""",
+            "requirements": [
+                "本科及以上学历，计算机相关专业，2025 届校招优先",
+                "熟练掌握 React 前端框架，具备扎实的前端开发能力",
+                "熟悉 TypeScript，了解前端工程化工具（Webpack/Vite）",
+                "了解前端性能优化和跨浏览器兼容性处理",
+                "有实际项目经验或实习经验者优先"
+            ],
             "preferred_skills": ["React", "TypeScript", "JavaScript", "CSS", "Webpack", "Node.js"],
             "tags": ["大厂", "核心业务", "技术栈先进", "校招", "春招"],
             "is_remote": False,
@@ -101,8 +149,32 @@ class JobSourceEngine:
             "location": "深圳",
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 30, "max": 55, "unit": "K/月"},
-            "description": "负责搜索/推荐算法优化，提升用户体验和商业化效果",
-            "requirements": ["硕士及以上学历", "扎实的数学基础", "熟悉机器学习算法", "有顶会论文优先"],
+            "description": """【岗位职责】
+1. 负责搜索/推荐算法的研发与优化，提升用户体验和商业化效果；
+2. 参与大模型相关技术研究，包括排序模型、召回策略、多目标优化等；
+3. 负责算法模型的工程化部署和性能优化，保障线上服务稳定性；
+4. 与产品、工程团队紧密协作，推动算法能力落地到实际业务场景；
+5. 跟踪业界前沿技术动态，持续探索新技术在搜索推荐领域的应用。
+
+【任职要求】
+1. 硕士及以上学历，计算机、数学、统计等相关专业；
+2. 扎实的数学基础，熟悉机器学习/深度学习算法原理；
+3. 熟练掌握 Python/C++，熟悉 PyTorch/TensorFlow 等主流框架；
+4. 有顶会论文（NeurIPS/ICML/KDD/SIGIR 等）者优先考虑；
+5. 具备良好的英文文献阅读能力和技术沟通能力。
+
+【福利待遇】
+1. 顶级薪酬（30-55K/月），股票期权，年终奖；
+2. 五险一金、补充商业保险、年度体检；
+3. 弹性工作制，免费三餐、健身房；
+4. 顶尖技术团队，参与行业前沿项目。""",
+            "requirements": [
+                "硕士及以上学历，计算机、数学、统计等相关专业",
+                "扎实的数学基础，熟悉机器学习/深度学习算法原理",
+                "熟练掌握 Python/C++，熟悉 PyTorch/TensorFlow 等主流框架",
+                "有顶会论文（NeurIPS/ICML/KDD/SIGIR 等）者优先考虑",
+                "具备良好的英文文献阅读能力和技术沟通能力"
+            ],
             "preferred_skills": ["Python", "TensorFlow", "PyTorch", "NLP", "推荐系统", "C++"],
             "tags": ["大厂", "算法", "高薪资", "校招", "秋招"],
             "is_remote": False,
@@ -130,8 +202,32 @@ class JobSourceEngine:
             "location": "北京",
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 25, "max": 45, "unit": "K/月"},
-            "description": "负责本地生活服务平台全栈开发，覆盖 Web 和移动端",
-            "requirements": ["计算机相关专业", "熟悉前后端开发", "了解数据库设计", "有实际项目经验"],
+            "description": """【岗位职责】
+1. 负责本地生活服务平台全栈开发，覆盖 Web 端和移动端核心业务；
+2. 参与前后端架构设计，推动技术选型和工程化建设；
+3. 负责核心服务模块的开发，保障系统高可用性和性能；
+4. 与产品、设计团队紧密协作，快速迭代业务功能；
+5. 参与技术难题攻关，持续优化系统架构和开发效率。
+
+【任职要求】
+1. 本科及以上学历，计算机相关专业，2025 届校招优先；
+2. 熟悉前端开发（Vue/React），了解后端开发（Node.js/Python）；
+3. 了解数据库设计（PostgreSQL/MySQL），具备基本的系统设计能力；
+4. 熟悉 Docker 容器化部署，了解 CI/CD 流程；
+5. 有实际项目经验或实习经验者优先。
+
+【福利待遇】
+1. 具有竞争力的薪酬（25-45K/月），股票期权；
+2. 五险一金、补充商业保险、年度体检；
+3. 弹性工作制，免费三餐、零食饮料；
+4. 技术氛围浓厚，成长空间大。""",
+            "requirements": [
+                "本科及以上学历，计算机相关专业，2025 届校招优先",
+                "熟悉前端开发（Vue/React），了解后端开发（Node.js/Python）",
+                "了解数据库设计（PostgreSQL/MySQL），具备基本的系统设计能力",
+                "熟悉 Docker 容器化部署，了解 CI/CD 流程",
+                "有实际项目经验或实习经验者优先"
+            ],
             "preferred_skills": ["Vue", "React", "Node.js", "Python", "PostgreSQL", "Docker"],
             "tags": ["大厂", "全栈", "业务丰富", "校招"],
             "is_remote": False,
@@ -159,8 +255,32 @@ class JobSourceEngine:
             "location": "上海",
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 30, "max": 50, "unit": "K/月"},
-            "description": "负责拼多多 App 核心功能开发，使用 Kotlin/Swift",
-            "requirements": ["计算机相关专业", "熟悉 Android 或 iOS 开发", "了解移动端性能优化"],
+            "description": """【岗位职责】
+1. 负责拼多多 App 核心功能开发，使用 Kotlin/Swift 构建高质量移动端体验；
+2. 参与移动端架构设计和性能优化，提升 App 稳定性和用户体验；
+3. 与后端、产品、设计团队紧密协作，快速迭代业务功能；
+4. 负责移动端新技术调研和技术难题攻关；
+5. 参与移动端工程化建设，推动开发效率和代码质量提升。
+
+【任职要求】
+1. 本科及以上学历，计算机相关专业，2025 届校招优先；
+2. 熟悉 Android（Kotlin/Java）或 iOS（Swift/Objective-C）至少一端开发；
+3. 了解移动端性能优化、内存管理和网络编程；
+4. 熟悉跨平台开发框架（React Native/Flutter）者优先；
+5. 有实际项目经验或实习经验者优先。
+
+【福利待遇】
+1. 具有竞争力的薪酬（30-50K/月），股票期权；
+2. 五险一金、补充商业保险、年度体检；
+3. 弹性工作制，免费三餐、下午茶；
+4. 高速成长环境，参与亿级用户产品。""",
+            "requirements": [
+                "本科及以上学历，计算机相关专业，2025 届校招优先",
+                "熟悉 Android（Kotlin/Java）或 iOS（Swift/Objective-C）至少一端开发",
+                "了解移动端性能优化、内存管理和网络编程",
+                "熟悉跨平台开发框架（React Native/Flutter）者优先",
+                "有实际项目经验或实习经验者优先"
+            ],
             "preferred_skills": ["Kotlin", "Swift", "Java", "Objective-C", "React Native", "Flutter"],
             "tags": ["大厂", "移动端", "高并发", "校招", "秋招"],
             "is_remote": False,
@@ -188,8 +308,32 @@ class JobSourceEngine:
             "location": "北京",
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 40, "max": 70, "unit": "K/月"},
-            "description": "参与 Azure 云服务开发，使用 C#/Go 构建分布式系统",
-            "requirements": ["计算机相关专业", "熟练掌握至少一门编程语言", "良好的英语能力"],
+            "description": """【岗位职责】
+1. 参与 Azure 云服务核心功能开发，使用 C#/Go 构建高可用分布式系统；
+2. 负责云服务后端服务的设计、开发和优化，保障系统稳定性和性能；
+3. 参与云原生技术栈建设，包括 Kubernetes、Service Mesh 等；
+4. 与全球团队协作，参与技术架构评审和代码审查；
+5. 跟踪云计算前沿技术，持续优化产品体验。
+
+【任职要求】
+1. 本科及以上学历，计算机相关专业，2025 届校招优先；
+2. 熟练掌握至少一门编程语言（C#/Go/Java/Python）；
+3. 了解分布式系统基本原理，具备基本的系统设计能力；
+4. 具备良好的英语沟通能力，能够阅读英文技术文档；
+5. 有实习经验或实际项目经验者优先。
+
+【福利待遇】
+1. 顶级薪酬（40-70K/月），股票期权，年终奖；
+2. 完善的福利体系，补充商业保险、年度体检；
+3. 工作生活平衡，弹性工作制，带薪年假；
+4. 全球技术团队，国际化工作环境。""",
+            "requirements": [
+                "本科及以上学历，计算机相关专业，2025 届校招优先",
+                "熟练掌握至少一门编程语言（C#/Go/Java/Python）",
+                "了解分布式系统基本原理，具备基本的系统设计能力",
+                "具备良好的英语沟通能力，能够阅读英文技术文档",
+                "有实习经验或实际项目经验者优先"
+            ],
             "preferred_skills": ["C#", "Go", "Python", "Azure", "Kubernetes", "SQL"],
             "tags": ["外企", "WLB", "技术栈先进", "校招", "秋招"],
             "is_remote": False,
@@ -217,8 +361,32 @@ class JobSourceEngine:
             "location": "上海",
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 50, "max": 80, "unit": "K/月"},
-            "description": "参与 Google Cloud 产品开发，使用 C++/Java 构建大规模分布式系统",
-            "requirements": ["本科及以上学历", "扎实的算法基础", "良好的英语沟通能力"],
+            "description": """【岗位职责】
+1. 参与 Google Cloud 核心产品开发，使用 C++/Java 构建大规模分布式系统；
+2. 负责云服务后端服务的设计、开发和性能优化；
+3. 参与云原生技术栈建设，包括 Kubernetes、Cloud Spanner 等；
+4. 与全球顶尖工程师协作，参与技术架构评审和代码审查；
+5. 跟踪云计算和分布式系统前沿技术，持续推动技术创新。
+
+【任职要求】
+1. 本科及以上学历，计算机相关专业，2025 届校招优先；
+2. 扎实的算法和数据结构基础，能够解决复杂技术问题；
+3. 熟练掌握 C++/Java/Python 至少一门编程语言；
+4. 具备良好的英语沟通能力，能够进行技术文档撰写和团队沟通；
+5. 有实习经验或实际项目经验者优先。
+
+【福利待遇】
+1. 顶级薪酬（50-80K/月），股票期权，年终奖；
+2. 完善的福利体系，补充商业保险、年度体检；
+3. 工作生活平衡，弹性工作制，带薪年假；
+4. 全球顶尖技术团队，参与行业前沿项目。""",
+            "requirements": [
+                "本科及以上学历，计算机相关专业，2025 届校招优先",
+                "扎实的算法和数据结构基础，能够解决复杂技术问题",
+                "熟练掌握 C++/Java/Python 至少一门编程语言",
+                "具备良好的英语沟通能力，能够进行技术文档撰写和团队沟通",
+                "有实习经验或实际项目经验者优先"
+            ],
             "preferred_skills": ["C++", "Java", "Python", "Go", "Distributed Systems", "Cloud"],
             "tags": ["外企", "顶级薪资", "技术挑战", "校招", "秋招"],
             "is_remote": False,
@@ -246,8 +414,32 @@ class JobSourceEngine:
             "location": "北京",
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 20, "max": 35, "unit": "K/月"},
-            "description": "参与 AI 产品后端开发，使用 Python/Go 构建大模型应用服务",
-            "requirements": ["计算机相关专业", "熟悉 Python", "对 AI/LLM 有兴趣"],
+            "description": """【岗位职责】
+1. 参与 AI 产品后端开发，使用 Python/Go 构建大模型应用服务；
+2. 负责 LLM 应用层开发，包括 RAG、Agent、Prompt Engineering 等；
+3. 参与后端服务架构设计和性能优化，保障系统高可用性；
+4. 与算法、产品团队紧密协作，推动 AI 能力落地到实际业务场景；
+5. 跟踪 AI 领域前沿技术动态，持续探索新技术应用。
+
+【任职要求】
+1. 本科及以上学历，计算机相关专业，2025 届校招优先；
+2. 熟练掌握 Python 或 Go 编程语言，具备扎实的编程基础；
+3. 了解大语言模型（LLM）相关技术，有 LangChain/LlamaIndex 经验者优先；
+4. 熟悉常用数据库（Redis/PostgreSQL），了解分布式系统基本原理；
+5. 对 AI/LLM 领域有浓厚兴趣，具备快速学习能力。
+
+【福利待遇】
+1. 具有竞争力的薪酬（20-35K/月），股票期权；
+2. 五险一金、年度体检；
+3. 弹性工作制，扁平化管理；
+4. 参与前沿 AI 项目，技术成长空间大。""",
+            "requirements": [
+                "本科及以上学历，计算机相关专业，2025 届校招优先",
+                "熟练掌握 Python 或 Go 编程语言，具备扎实的编程基础",
+                "了解大语言模型（LLM）相关技术，有 LangChain/LlamaIndex 经验者优先",
+                "熟悉常用数据库（Redis/PostgreSQL），了解分布式系统基本原理",
+                "对 AI/LLM 领域有浓厚兴趣，具备快速学习能力"
+            ],
             "preferred_skills": ["Python", "FastAPI", "LangChain", "Redis", "PostgreSQL", "Docker"],
             "tags": ["创业公司", "AI", "成长空间大", "校招"],
             "is_remote": False,
@@ -275,8 +467,34 @@ class JobSourceEngine:
             "location": "北京",
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 15, "max": 25, "unit": "K/月"},
-            "description": "负责企业内部信息系统开发与维护",
-            "requirements": ["计算机相关专业", "熟悉 Java/Python", "稳定性要求高"],
+            "description": """【岗位职责】
+1. 负责企业内部信息系统（OA/ERP/HR 等）的开发与维护；
+2. 参与信息化项目的需求分析、方案设计和实施管理；
+3. 负责系统日常运维，保障系统稳定运行和数据安全；
+4. 协助推进数字化转型项目，提升企业运营效率；
+5. 参与技术架构演进，推动系统现代化改造。
+
+【任职要求】
+1. 本科及以上学历，计算机相关专业，2025 届校招优先；
+2. 熟悉 Java/Python 至少一门后端编程语言；
+3. 了解数据库（MySQL/PostgreSQL）和基本 SQL 操作；
+4. 熟悉 Linux 操作系统，具备基本的命令行操作能力；
+5. 了解 Vue 等前端框架者优先；
+6. 稳定性要求高，具备良好的责任心和团队协作精神。
+
+【福利待遇】
+1. 具有竞争力的薪酬（15-25K/月）；
+2. 五险一金、补充商业保险、年度体检；
+3. 工作稳定，WLB 好，双休法定节假日；
+4. 完善的培训体系，职业发展通道清晰。""",
+            "requirements": [
+                "本科及以上学历，计算机相关专业，2025 届校招优先",
+                "熟悉 Java/Python 至少一门后端编程语言",
+                "了解数据库（MySQL/PostgreSQL）和基本 SQL 操作",
+                "熟悉 Linux 操作系统，具备基本的命令行操作能力",
+                "了解 Vue 等前端框架者优先",
+                "稳定性要求高，具备良好的责任心和团队协作精神"
+            ],
             "preferred_skills": ["Java", "Spring Boot", "MySQL", "Vue", "Linux"],
             "tags": ["国企", "稳定", "WLB好", "校招"],
             "is_remote": False,
@@ -304,8 +522,34 @@ class JobSourceEngine:
             "location": "远程",
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 20, "max": 40, "unit": "K/月"},
-            "description": "远程开发 SaaS 产品前端，使用 React/TypeScript",
-            "requirements": ["熟练掌握 React", "有独立开发能力", "良好的沟通能力"],
+            "description": """【岗位职责】
+1. 负责 SaaS 产品前端开发，使用 React/TypeScript 构建高质量用户界面；
+2. 参与前端架构设计和技术选型，推动前端工程化建设；
+3. 优化前端性能，提升用户体验和页面加载速度；
+4. 与后端、设计团队紧密协作，完成产品功能迭代；
+5. 参与远程团队协作，遵循敏捷开发流程。
+
+【任职要求】
+1. 本科及以上学历，计算机相关专业；
+2. 熟练掌握 React 和 TypeScript，具备扎实的前端开发能力；
+3. 熟悉 Next.js 框架，了解 SSR/SSG 原理；
+4. 了解 Tailwind CSS 等现代 CSS 框架，具备优秀的 UI 实现能力；
+5. 具备良好的英语沟通能力，能够进行技术文档撰写和团队沟通；
+6. 有独立开发能力和远程协作经验者加分。
+
+【福利待遇】
+1. 具有竞争力的薪酬（20-40K/月）；
+2. 完全远程办公，灵活工作时间；
+3. 国际化团队，接触前沿技术栈；
+4. 股票期权，参与公司成长红利。""",
+            "requirements": [
+                "本科及以上学历，计算机相关专业",
+                "熟练掌握 React 和 TypeScript，具备扎实的前端开发能力",
+                "熟悉 Next.js 框架，了解 SSR/SSG 原理",
+                "了解 Tailwind CSS 等现代 CSS 框架，具备优秀的 UI 实现能力",
+                "具备良好的英语沟通能力，能够进行技术文档撰写和团队沟通",
+                "有独立开发能力和远程协作经验者加分"
+            ],
             "preferred_skills": ["React", "TypeScript", "Next.js", "Tailwind CSS", "GraphQL"],
             "tags": ["远程", "灵活", "国际化", "海外机会"],
             "is_remote": True,
@@ -324,22 +568,39 @@ class JobSourceEngine:
     ]
 
     async def seed_mock_jobs(self) -> List[JobResponse]:
-        """初始化 Mock 岗位数据"""
+        """初始化/更新 Mock 岗位数据（upsert：存在则更新，不存在则新增）"""
         async for db in get_db():
-            existing = await db.execute(select(Job).limit(1))
-            if existing.scalar():
-                logger.info("Mock 岗位数据已存在，跳过初始化")
-                return []
-
-            jobs = []
+            added = 0
+            updated = 0
             for data in self.MOCK_JOBS:
-                job_id = str(uuid.uuid4())
-                job = Job(id=job_id, **data)
-                jobs.append(job)
-            db.add_all(jobs)
+                # 按 source + title 判断是否已存在（可能有同名岗位，取第一个）
+                existing = await db.execute(
+                    select(Job).where(
+                        Job.source == data["source"],
+                        Job.title == data["title"],
+                    ).limit(1)
+                )
+                job = existing.scalar_one_or_none()
+
+                if job:
+                    # 更新关键字段
+                    job.description = data["description"]
+                    job.requirements = data["requirements"]
+                    job.preferred_skills = data["preferred_skills"]
+                    job.tags = data["tags"]
+                    updated += 1
+                else:
+                    # 新增
+                    job_id = str(uuid.uuid4())
+                    job = Job(id=job_id, **data)
+                    db.add(job)
+                    added += 1
+
             await db.commit()
-            logger.info(f"已初始化 {len(jobs)} 条 Mock 岗位数据")
-            return [JobResponse.model_validate(j) for j in jobs]
+            logger.info(f"Mock 岗位数据: 新增 {added} 条, 更新 {updated} 条")
+            # 返回数据库中实际更新的记录
+            result = await db.execute(select(Job).where(Job.source == data["source"]))
+            return [JobResponse.model_validate(j) for j in result.scalars().all()]
 
     async def search_jobs(
         self,

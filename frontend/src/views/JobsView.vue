@@ -1,22 +1,78 @@
 <template>
   <div class="jobs-page">
     <div class="page-header">
-      <h1>岗位匹配</h1>
-      <p>发现适合你的机会，AI 精准匹配</p>
+      <h1>岗位中心</h1>
+      <p>汇聚广东人才网、公共招聘平台等优质岗位，AI 精准匹配</p>
     </div>
 
-    <!-- 搜索 -->
-    <div class="search-bar">
-      <input v-model="searchKeyword" type="text" placeholder="搜索岗位、公司..." class="search-input" @keyup.enter="searchJobs" />
-      <button class="search-btn" @click="searchJobs">搜索</button>
+    <!-- 统计面板 -->
+    <div class="stats-panel">
+      <div class="stat-item">
+        <div class="stat-num">{{ stats.total_jobs || 0 }}</div>
+        <div class="stat-label">总岗位</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">{{ stats.guangdong_jobs || 0 }}</div>
+        <div class="stat-label">广东岗位</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">{{ stats.campus_jobs || 0 }}</div>
+        <div class="stat-label">校招岗位</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">{{ stats.foreign_jobs || 0 }}</div>
+        <div class="stat-label">外企岗位</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">{{ stats.remote_jobs || 0 }}</div>
+        <div class="stat-label">远程岗位</div>
+      </div>
+    </div>
+
+    <!-- 操作栏 -->
+    <div class="action-bar">
+      <div class="search-bar">
+        <input
+          v-model="searchKeyword"
+          type="text"
+          placeholder="搜索岗位、公司..."
+          class="search-input"
+          @keyup.enter="searchJobs"
+        />
+        <button class="search-btn" @click="searchJobs">搜索</button>
+      </div>
+      <div class="action-buttons">
+        <button class="sync-btn" @click="syncJobs" :disabled="syncing">
+          {{ syncing ? '同步中...' : '🔄 同步岗位' }}
+        </button>
+        <button class="seed-btn" @click="seedJobs" :disabled="seeding">
+          {{ seeding ? '初始化中...' : '📦 初始化数据' }}
+        </button>
+      </div>
     </div>
 
     <!-- 筛选 -->
     <div class="filters">
-      <button :class="['filter-btn', { active: filterRemote }]" @click="filterRemote = !filterRemote">🏠 远程</button>
-      <button :class="['filter-btn', { active: filterForeign }]" @click="filterForeign = !filterForeign">🌍 外企</button>
-      <button :class="['filter-btn', { active: filterCampus }]" @click="filterCampus = !filterCampus">🎓 校招</button>
-      <button :class="['filter-btn', { active: filterOverseas }]" @click="filterOverseas = !filterOverseas">✈️ 海外</button>
+      <button
+        v-for="f in filterOptions"
+        :key="f.value"
+        :class="['filter-btn', { active: activeFilter === f.value }]"
+        @click="activeFilter = f.value; searchJobs()"
+      >
+        {{ f.label }}
+      </button>
+      <button
+        :class="['filter-btn', { active: filterRemote }]"
+        @click="filterRemote = !filterRemote; searchJobs()"
+      >🏠 远程</button>
+      <button
+        :class="['filter-btn', { active: filterForeign }]"
+        @click="filterForeign = !filterForeign; searchJobs()"
+      >🌍 外企</button>
+      <button
+        :class="['filter-btn', { active: filterCampus }]"
+        @click="filterCampus = !filterCampus; searchJobs()"
+      >🎓 校招</button>
     </div>
 
     <!-- 排序 -->
@@ -26,21 +82,28 @@
         v-for="opt in sortOptions"
         :key="opt.value"
         :class="['sort-btn', { active: sortBy === opt.value }]"
-        @click="sortBy = opt.value"
-      >
-        {{ opt.label }}
-      </button>
-      <span class="job-count" v-if="!loading">{{ jobs.length }} 个岗位</span>
+        @click="sortBy = opt.value; searchJobs()"
+      >{{ opt.label }}</button>
+      <span class="job-count">{{ jobs.length }} 个岗位</span>
     </div>
 
-    <!-- 岗位列表 -->
+    <!-- 空状态 -->
     <div v-if="jobs.length === 0 && !loading" class="empty-state">
-      <p>暂无岗位，点击初始化</p>
-      <button class="init-btn" @click="initJobs">初始化岗位数据</button>
+      <div class="empty-icon">📭</div>
+      <p>暂无岗位数据</p>
+      <div class="empty-actions">
+        <button class="sync-btn" @click="syncJobs" :disabled="syncing">
+          {{ syncing ? '同步中...' : '🔄 同步广东岗位' }}
+        </button>
+        <button class="seed-btn" @click="seedJobs" :disabled="seeding">
+          {{ seeding ? '初始化中...' : '📦 初始化数据' }}
+        </button>
+      </div>
     </div>
 
     <div v-if="loading" class="loading">加载中...</div>
 
+    <!-- 岗位列表 -->
     <div v-else class="job-list">
       <div
         v-for="job in jobs"
@@ -51,21 +114,28 @@
         <div class="job-header">
           <div class="job-company">{{ job.company }}</div>
           <div class="job-tags">
+            <span v-if="job.source === 'gdrc'" class="tag gdrc">广东人才网</span>
+            <span v-if="job.source === 'gd_public'" class="tag gd_public">公共招聘</span>
             <span v-if="job.is_remote" class="tag remote">远程</span>
             <span v-if="job.is_foreign" class="tag foreign">外企</span>
             <span v-if="job.campus_recruitment" class="tag campus">校招</span>
-            <span v-if="job.season" class="tag season">{{ job.season }}</span>
+            <span v-if="job.season" class="tag season">{{ seasonLabel(job.season) }}</span>
           </div>
         </div>
         <div class="job-title">{{ job.title }}</div>
         <div class="job-meta">
           <span>📍 {{ job.location }}</span>
           <span v-if="job.salary_range">· 💰 {{ job.salary_range.min }}-{{ job.salary_range.max }}K</span>
+          <span v-if="job.job_type">· {{ job.job_type }}</span>
         </div>
-        <div class="job-desc">{{ truncate(job.description, 100) }}</div>
+        <div class="job-desc">{{ truncate(job.description, 120) }}</div>
         <div class="job-footer">
           <div class="job-tags-row">
-            <span v-for="skill in (job.preferred_skills || []).slice(0, 3)" :key="skill" class="mini-tag">{{ skill }}</span>
+            <span
+              v-for="skill in (job.preferred_skills || []).slice(0, 3)"
+              :key="skill"
+              class="mini-tag"
+            >{{ skill }}</span>
           </div>
           <div class="job-actions" @click.stop>
             <button
@@ -91,27 +161,45 @@ export default {
   data() {
     return {
       jobs: [],
+      stats: {},
       loading: false,
+      syncing: false,
+      seeding: false,
       searchKeyword: '',
+      activeFilter: 'all',
       filterRemote: false,
       filterForeign: false,
       filterCampus: false,
-      filterOverseas: false,
       sortBy: 'default',
       sortOptions: [
         { label: '默认', value: 'default' },
-        { label: '匹配度', value: 'match' },
         { label: '薪资', value: 'salary' },
         { label: '最新', value: 'latest' }
+      ],
+      filterOptions: [
+        { label: '全部', value: 'all' },
+        { label: '广东人才网', value: 'gdrc' },
+        { label: '公共招聘', value: 'gd_public' },
+        { label: '校招', value: 'campus' },
+        { label: '外企', value: 'foreign' }
       ],
       savedJobs: new Set()
     }
   },
   async created() {
+    await this.loadStats()
     await this.loadJobs()
     await this.loadSavedJobs()
   },
   methods: {
+    async loadStats() {
+      try {
+        this.stats = await jobApi.getJobStats()
+      } catch (e) {
+        console.error('加载统计失败', e)
+      }
+    },
+
     async loadJobs() {
       this.loading = true
       try {
@@ -119,7 +207,18 @@ export default {
         if (this.filterRemote) params.is_remote = true
         if (this.filterForeign) params.is_foreign = true
         if (this.filterCampus) params.campus_recruitment = true
-        if (this.filterOverseas) params.visa_support = true
+
+        // 来源筛选
+        if (this.activeFilter === 'gdrc') {
+          params.source_type = 'gdrc'
+        } else if (this.activeFilter === 'gd_public') {
+          params.source_type = 'gd_public'
+        } else if (this.activeFilter === 'campus') {
+          params.campus_recruitment = true
+        } else if (this.activeFilter === 'foreign') {
+          params.is_foreign = true
+        }
+
         this.jobs = await jobApi.listJobs(params)
         if (this.sortBy === 'salary') {
           this.jobs.sort((a, b) => (b.salary_range?.max || 0) - (a.salary_range?.max || 0))
@@ -132,15 +231,47 @@ export default {
         this.loading = false
       }
     },
+
     async loadSavedJobs() {
       try {
         const saved = await jobApi.getSavedJobs()
         this.savedJobs = new Set(saved.map(j => j.job_id))
       } catch (e) {}
     },
+
     async searchJobs() {
       await this.loadJobs()
     },
+
+    async syncJobs() {
+      this.syncing = true
+      try {
+        await jobApi.syncJobs('gdrc')
+        await jobApi.syncJobs('gd_public')
+        await this.loadJobs()
+        await this.loadStats()
+      } catch (e) {
+        console.error('同步失败', e)
+        alert('同步失败，请重试')
+      } finally {
+        this.syncing = false
+      }
+    },
+
+    async seedJobs() {
+      this.seeding = true
+      try {
+        await jobApi.seedJobs()
+        await this.loadJobs()
+        await this.loadStats()
+      } catch (e) {
+        console.error('初始化失败', e)
+        alert('初始化失败，请重试')
+      } finally {
+        this.seeding = false
+      }
+    },
+
     async toggleSave(job) {
       if (this.savedJobs.has(job.id)) {
         await jobApi.removeSavedJob(job.id)
@@ -150,22 +281,22 @@ export default {
         this.savedJobs.add(job.id)
       }
     },
+
     isSaved(jobId) {
       return this.savedJobs.has(jobId)
     },
+
     goToDetail(job) {
       this.$router.push(`/jobs/${job.id}`)
     },
-    async initJobs() {
-      try {
-        await jobApi.seedJobs()
-        await this.loadJobs()
-      } catch (e) {
-        console.error('初始化失败', e)
-      }
-    },
+
     truncate(str, len) {
       return str && str.length > len ? str.slice(0, len) + '...' : str || ''
+    },
+
+    seasonLabel(season) {
+      const map = { spring: '春招', autumn: '秋招', regular: '日常' }
+      return map[season] || season
     }
   }
 }
@@ -194,10 +325,47 @@ export default {
   color: var(--text-secondary);
 }
 
+/* 统计面板 */
+.stats-panel {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stat-item {
+  background: var(--bg-white);
+  border-radius: var(--radius);
+  padding: 20px 16px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.stat-num {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--blue);
+  letter-spacing: -0.02em;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+/* 操作栏 */
+.action-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
 .search-bar {
+  flex: 1;
   display: flex;
   gap: 10px;
-  margin-bottom: 14px;
 }
 
 .search-input {
@@ -227,6 +395,42 @@ export default {
   font-family: inherit;
 }
 
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sync-btn, .seed-btn {
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.sync-btn {
+  background: var(--blue-light);
+  color: var(--blue);
+}
+
+.sync-btn:hover:not(:disabled) { background: #d0e8ff; }
+.sync-btn:disabled { background: var(--bg); color: var(--text-tertiary); cursor: not-allowed; }
+
+.seed-btn {
+  background: var(--bg);
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border);
+}
+
+.seed-btn:hover:not(:disabled) { background: var(--border); }
+.seed-btn:disabled { cursor: not-allowed; }
+
+/* 筛选 */
 .filters {
   display: flex;
   gap: 8px;
@@ -253,6 +457,7 @@ export default {
   border-color: var(--blue);
 }
 
+/* 排序 */
 .sort-bar {
   display: flex;
   align-items: center;
@@ -288,6 +493,7 @@ export default {
   color: var(--text-tertiary);
 }
 
+/* 岗位列表 */
 .job-list {
   display: flex;
   flex-direction: column;
@@ -324,6 +530,7 @@ export default {
 .job-tags {
   display: flex;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .tag {
@@ -333,6 +540,8 @@ export default {
   border-radius: 980px;
 }
 
+.tag.gdrc { background: #e8f8ec; color: var(--green); }
+.tag.gd_public { background: #fff4e0; color: var(--orange); }
 .tag.remote { background: #e8f8ec; color: var(--green); }
 .tag.foreign { background: var(--blue-light); color: var(--blue); }
 .tag.campus { background: #f3e8ff; color: #7c3aed; }
@@ -395,7 +604,6 @@ export default {
   border-radius: 980px;
   cursor: pointer;
   font-family: inherit;
-  text-decoration: none;
   transition: all 0.15s ease;
 }
 
@@ -418,6 +626,7 @@ export default {
   text-decoration: none;
 }
 
+/* 空状态 */
 .empty-state {
   text-align: center;
   padding: 48px 20px;
@@ -426,19 +635,29 @@ export default {
   border-radius: var(--radius);
 }
 
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
 .empty-state p { font-size: 15px; margin-bottom: 16px; }
 
-.init-btn {
-  padding: 10px 24px;
-  font-size: 15px;
-  font-weight: 500;
-  background: var(--blue);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  font-family: inherit;
+.empty-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
 }
 
+/* Loading */
 .loading { text-align: center; padding: 40px; color: var(--text-tertiary); }
+
+/* 响应式 */
+@media (max-width: 734px) {
+  .stats-panel {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .action-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .action-buttons {
+    justify-content: center;
+  }
+}
 </style>
