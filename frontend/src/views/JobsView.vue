@@ -300,10 +300,10 @@
           <div class="job-tags">
             <span v-if="job.source === 'gdrc'" class="tag gdrc">广东人才网</span>
             <span v-if="job.source === 'gd_public'" class="tag gd_public">公共招聘</span>
-            <span v-if="job.is_remote" class="tag remote">远程</span>
-            <span v-if="job.is_foreign" class="tag foreign">外企</span>
-            <span v-if="job.campus_recruitment" class="tag campus">校招</span>
-            <span v-if="job.season" class="tag season">{{ seasonLabel(job.season) }}</span>
+            <span v-if="job.is_remote && !(job.tags || []).includes('远程')" class="tag remote">远程</span>
+            <span v-if="job.is_foreign && !(job.tags || []).includes('外企')" class="tag foreign">外企</span>
+            <span v-if="job.campus_recruitment && !(job.tags || []).includes('校招')" class="tag campus">校招</span>
+            <span v-if="job.season && !(job.tags || []).includes(seasonLabel(job.season))" class="tag season">{{ seasonLabel(job.season) }}</span>
           </div>
         </div>
         <div class="job-title">{{ job.title }}</div>
