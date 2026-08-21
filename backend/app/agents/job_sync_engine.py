@@ -13,6 +13,11 @@ from sqlalchemy import select
 from app.agents.job_source_adapters import ADAPTER_REGISTRY, get_adapter
 
 
+def _model_to_dict(obj):
+    """将 SQLAlchemy 模型序列化为 dict"""
+    return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+
+
 class JobSyncEngine:
     """岗位数据同步引擎"""
 
@@ -74,25 +79,47 @@ class JobSyncEngine:
             "description": "Glassdoor",
             "is_active": True,
         },
+        {
+            "id": "src_gdrc",
+            "source_name": "gdrc",
+            "source_type": "gdrc",
+            "base_url": "https://www.gdrc.com",
+            "description": "广东人才网（广东省人社厅）",
+            "is_active": True,
+        },
+        {
+            "id": "src_gd_public",
+            "source_name": "gd_public",
+            "source_type": "gd_public",
+            "base_url": "https://gdreclruit.gov.cn",
+            "description": "广东公共招聘平台（省级公共就业服务）",
+            "is_active": True,
+        },
     ]
 
     async def init_sources(self) -> List[dict]:
-        """初始化数据源配置"""
+        """初始化/更新数据源配置（upsert 新数据源）"""
         async for db in get_db():
-            existing = await db.execute(select(JobSource).limit(1))
-            if existing.scalar():
-                logger.info("数据源配置已存在，跳过初始化")
-                result = await db.execute(select(JobSource))
-                return [s.model_dump() for s in result.scalars().all()]
+            # 加载已有数据源名称集合
+            result = await db.execute(select(JobSource))
+            existing = result.scalars().all()
+            existing_names = {s.source_name for s in existing}
 
-            sources = []
+            added = 0
             for data in self.DEFAULT_SOURCES:
-                source = JobSource(**data)
-                sources.append(source)
-            db.add_all(sources)
-            await db.commit()
-            logger.info(f"已初始化 {len(sources)} 个数据源")
-            return [s.model_dump() for s in sources]
+                if data["source_name"] not in existing_names:
+                    source = JobSource(**data)
+                    db.add(source)
+                    added += 1
+
+            if added:
+                await db.commit()
+                logger.info(f"已新增 {added} 个数据源")
+            else:
+                logger.info("数据源配置已是最新，无需初始化")
+
+            result = await db.execute(select(JobSource))
+            return [_model_to_dict(s) for s in result.scalars().all()]
 
     async def list_sources(self) -> List[dict]:
         """列出所有数据源"""
@@ -100,16 +127,23 @@ class JobSyncEngine:
             result = await db.execute(
                 select(JobSource).order_by(JobSource.created_at.desc())
             )
-            return [s.model_dump() for s in result.scalars().all()]
+            return [_model_to_dict(s) for s in result.scalars().all()]
 
     async def sync_jobs(self, source_name: Optional[str] = None) -> dict:
         """执行岗位数据同步"""
         async for db in get_db():
+            # 查找数据源记录，获取真实 source_id
+            src_result = await db.execute(
+                select(JobSource).where(JobSource.source_name == (source_name or "all"))
+            )
+            src_record = src_result.scalar_one_or_none()
+            db_source_id = src_record.id if src_record else (source_name or "all")
+
             # 创建同步记录
             sync_id = str(uuid.uuid4())
             sync_record = JobSyncRecord(
                 id=sync_id,
-                source_id=source_name or "all",
+                source_id=db_source_id,
                 source_name=source_name or "all",
                 sync_type="incremental",
                 status="running",

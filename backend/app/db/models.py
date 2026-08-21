@@ -35,6 +35,8 @@ class JobSource(str, enum.Enum):
     INDEED = "indeed"
     GLASSDOOR = "glassdoor"
     COMPANY = "company"
+    GDRC = "gdrc"               # 广东人才网
+    GD_PUBLIC = "gd_public"      # 广东公共招聘平台
 
 
 class JobSourceType(str, enum.Enum):
@@ -45,6 +47,8 @@ class JobSourceType(str, enum.Enum):
     LAGOU = "lagou"             # 拉勾
     LIEPIN = "liepin"           # 猎聘
     GLASSDOOR = "glassdoor"    # Glassdoor
+    GDRC = "gdrc"              # 广东人才网（政府）
+    GD_PUBLIC = "gd_public"    # 广东公共招聘平台（政府）
 
 
 class JobSeason(str, enum.Enum):

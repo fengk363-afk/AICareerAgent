@@ -44,6 +44,7 @@ class JobSourceAdapter(ABC):
         return {
             "source": self.source_name,
             "source_type": self.source_type,
+            "source_job_id": raw_job.get("source_job_id", ""),
             "source_url": raw_job.get("url", ""),
             "company": raw_job.get("company", ""),
             "company_type": raw_job.get("company_type", None),

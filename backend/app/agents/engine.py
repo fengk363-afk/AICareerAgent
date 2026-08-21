@@ -18,6 +18,7 @@ from app.agents.recommendation_engine import RecommendationEngine
 from app.agents.company_research_engine import CompanyResearchEngine
 from app.agents.job_ranking_engine import JobRankingEngine
 from app.agents.job_source_adapters import ADAPTER_REGISTRY, get_adapter, list_adapters
+import app.agents.job_source_guangdong  # 注册广东数据源适配器
 from app.agents.job_sync_engine import JobSyncEngine
 from app.agents.career_goal_engine import CareerGoalEngine
 from app.agents.ai_career_agent_engine import AICareerAgentEngine
