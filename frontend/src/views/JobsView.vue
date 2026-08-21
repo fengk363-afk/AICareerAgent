@@ -254,7 +254,7 @@ export default {
     async loadLocations() {
       // 从已有岗位中提取所有地点
       try {
-        const allJobs = await jobApi.listJobs({ limit: 200 })
+        const allJobs = await jobApi.listJobs({ limit: 100 })
         const locSet = new Set()
         for (const job of allJobs) {
           if (job.locations && Array.isArray(job.locations)) {
@@ -539,6 +539,7 @@ export default {
   gap: 10px;
   margin-bottom: 12px;
   flex-wrap: wrap;
+  position: relative;
 }
 
 .location-label {
