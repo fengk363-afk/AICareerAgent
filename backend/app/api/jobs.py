@@ -20,9 +20,12 @@ async def list_jobs(
     company_type: Optional[str] = Query(None),
     salary_min: Optional[float] = Query(None),
     salary_max: Optional[float] = Query(None),
+    salary_ranges: Optional[str] = Query(None),  # 薪资范围，如 "20-30,30-50"
     is_foreign: Optional[bool] = Query(None),
     is_remote: Optional[bool] = Query(None),
     has_apply_url: Optional[bool] = Query(None),
+    industry: Optional[str] = Query(None),  # 行业筛选（逗号分隔）
+    job_category: Optional[str] = Query(None),  # 岗位分类筛选（逗号分隔）
     limit: int = Query(20, le=100),
     offset: int = Query(0),
 ):
@@ -31,7 +34,9 @@ async def list_jobs(
         keyword=keyword, location=location, locations=locations,
         job_type=job_type, company_type=company_type,
         salary_min=salary_min, salary_max=salary_max,
+        salary_ranges=salary_ranges,
         is_foreign=is_foreign, is_remote=is_remote, has_apply_url=has_apply_url,
+        industry=industry, job_category=job_category,
         limit=limit, offset=offset,
     )
 

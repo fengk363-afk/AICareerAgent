@@ -79,6 +79,8 @@ class JobSourceEngine:
             "graduate_program": True,
             "campus_recruitment": True,
             "season": "autumn",
+            "industry": "互联网",
+            "job_category": "后端开发",
             "apply_url": "https://jobs.bytedance.com/campus",
             "job_url": "https://jobs.bytedance.com/campus",
             "apply_source": "company",
@@ -133,6 +135,8 @@ class JobSourceEngine:
             "graduate_program": True,
             "campus_recruitment": True,
             "season": "spring",
+            "industry": "互联网",
+            "job_category": "前端开发",
             "apply_url": "https://careers.alibaba.com/campus",
             "job_url": "https://careers.alibaba.com/campus",
             "apply_source": "boss",
@@ -187,6 +191,8 @@ class JobSourceEngine:
             "graduate_program": True,
             "campus_recruitment": True,
             "season": "autumn",
+            "industry": "互联网",
+            "job_category": "算法工程",
             "apply_url": "https://careers.tencent.com/campus",
             "job_url": "https://careers.tencent.com/campus",
             "apply_source": "company",
@@ -241,6 +247,8 @@ class JobSourceEngine:
             "graduate_program": True,
             "campus_recruitment": True,
             "season": "regular",
+            "industry": "互联网",
+            "job_category": "移动端开发",
             "apply_url": "https://zhaopin.meituan.com/campus",
             "job_url": "https://zhaopin.meituan.com/campus",
             "apply_source": "boss",
@@ -295,6 +303,8 @@ class JobSourceEngine:
             "graduate_program": True,
             "campus_recruitment": True,
             "season": "autumn",
+            "industry": "互联网",
+            "job_category": "产品运营",
             "apply_url": "https://careers.pinduoduo.com/campus",
             "job_url": "https://careers.pinduoduo.com/campus",
             "apply_source": "company",
@@ -349,6 +359,8 @@ class JobSourceEngine:
             "graduate_program": True,
             "campus_recruitment": True,
             "season": "autumn",
+            "industry": "科技",
+            "job_category": "后端开发",
             "apply_url": "https://careers.microsoft.com/campus",
             "job_url": "https://careers.microsoft.com/campus",
             "apply_source": "linkedin",
@@ -403,6 +415,8 @@ class JobSourceEngine:
             "graduate_program": True,
             "campus_recruitment": True,
             "season": "autumn",
+            "industry": "科技",
+            "job_category": "前端开发",
             "apply_url": "https://careers.google.com/jobs",
             "job_url": "https://careers.google.com/jobs",
             "apply_source": "linkedin",
@@ -457,6 +471,8 @@ class JobSourceEngine:
             "graduate_program": True,
             "campus_recruitment": True,
             "season": "regular",
+            "industry": "人工智能",
+            "job_category": "算法工程",
             "apply_url": "https://www.lagou.com/jobs/ai-startup",
             "job_url": "https://www.lagou.com/jobs/ai-startup",
             "apply_source": "lagou",
@@ -513,6 +529,8 @@ class JobSourceEngine:
             "graduate_program": True,
             "campus_recruitment": True,
             "season": "regular",
+            "industry": "金融",
+            "job_category": "数据分析",
             "apply_url": "https://www.liepin.com/state-enterprise",
             "job_url": "https://www.liepin.com/state-enterprise",
             "apply_source": "liepin",
@@ -569,6 +587,8 @@ class JobSourceEngine:
             "graduate_program": False,
             "campus_recruitment": False,
             "season": "regular",
+            "industry": "远程工作",
+            "job_category": "全栈开发",
             "apply_url": "https://www.wechatjobs.com/remote",
             "job_url": "https://www.wechatjobs.com/remote",
             "apply_source": "boss",
@@ -624,6 +644,7 @@ class JobSourceEngine:
         company_type: Optional[str] = None,
         salary_min: Optional[float] = None,
         salary_max: Optional[float] = None,
+        salary_ranges: Optional[str] = None,  # 薪资范围，如 "20-30,30-50"
         is_foreign: Optional[bool] = None,
         is_remote: Optional[str] = None,
         has_apply_url: Optional[bool] = None,
@@ -635,6 +656,8 @@ class JobSourceEngine:
         graduate_program: Optional[bool] = None,
         campus_recruitment: Optional[bool] = None,
         season: Optional[str] = None,
+        industry: Optional[str] = None,  # 行业筛选（逗号分隔）
+        job_category: Optional[str] = None,  # 岗位分类筛选（逗号分隔）
         limit: int = 20,
         offset: int = 0,
     ) -> List[JobResponse]:
@@ -675,6 +698,35 @@ class JobSourceEngine:
                 query = query.where(Job.salary_range["min"].as_integer() >= salary_min)
             if salary_max is not None:
                 query = query.where(Job.salary_range["max"].as_integer() <= salary_max)
+            if salary_ranges:
+                # 多薪资范围筛选：任意范围命中即可（OR 逻辑）
+                range_list = [r.strip() for r in salary_ranges.split(",") if r.strip()]
+                if range_list:
+                    from sqlalchemy import or_
+                    salary_conditions = []
+                    for range_str in range_list:
+                        if '-' in range_str:
+                            parts = range_str.split('-')
+                            if len(parts) == 2:
+                                try:
+                                    min_val = float(parts[0])
+                                    max_val = float(parts[1])
+                                    salary_conditions.append(
+                                        (Job.salary_range["min"].as_integer() >= min_val) &
+                                        (Job.salary_range["max"].as_integer() <= max_val)
+                                    )
+                                except ValueError:
+                                    pass
+                        elif range_str.endswith('+'):
+                            try:
+                                min_val = float(range_str[:-1])
+                                salary_conditions.append(
+                                    Job.salary_range["min"].as_integer() >= min_val
+                                )
+                            except ValueError:
+                                pass
+                    if salary_conditions:
+                        query = query.where(or_(*salary_conditions))
             if tags:
                 for tag in tags:
                     query = query.where(Job.tags.contains([tag]))
@@ -692,6 +744,20 @@ class JobSourceEngine:
                 query = query.where(Job.campus_recruitment == campus_recruitment)
             if season:
                 query = query.where(Job.season == season)
+            if industry:
+                # 多行业筛选：任意行业命中即可（OR 逻辑）
+                industry_list = [i.strip() for i in industry.split(",") if i.strip()]
+                if industry_list:
+                    from sqlalchemy import or_
+                    industry_conditions = [Job.industry == ind for ind in industry_list]
+                    query = query.where(or_(*industry_conditions))
+            if job_category:
+                # 多岗位分类筛选：任意分类命中即可（OR 逻辑）
+                category_list = [c.strip() for c in job_category.split(",") if c.strip()]
+                if category_list:
+                    from sqlalchemy import or_
+                    category_conditions = [Job.job_category == cat for cat in category_list]
+                    query = query.where(or_(*category_conditions))
 
             result = await db.execute(query.offset(offset).limit(limit))
             return [JobResponse.model_validate(r) for r in result.scalars().all()]

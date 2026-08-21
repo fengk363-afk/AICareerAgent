@@ -168,6 +168,8 @@ class Job(Base):
     graduate_program = Column(Boolean, default=False)      # 是否校招项目
     campus_recruitment = Column(Boolean, default=False)    # 是否校招
     season = Column(String(20), nullable=True)             # 春招/秋招/日常
+    industry = Column(String(100), nullable=True)           # 行业，如 "互联网"
+    job_category = Column(String(100), nullable=True)       # 岗位分类，如 "后端开发"
     updated_time = Column(DateTime, nullable=True)         # 最后更新时间
     posted_at = Column(DateTime, nullable=True)
     apply_url = Column(Text, nullable=True)

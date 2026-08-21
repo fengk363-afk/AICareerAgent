@@ -97,6 +97,144 @@
       </button>
     </div>
 
+    <!-- 薪资筛选 -->
+    <div class="salary-filter">
+      <div class="filter-label">💰 薪资：</div>
+      <!-- 已选薪资标签 -->
+      <div v-if="selectedSalaryRanges.length > 0" class="selected-tags">
+        <span
+          v-for="range in selectedSalaryRanges"
+          :key="range.label"
+          class="selected-tag"
+        >
+          {{ range.label }}
+          <button class="tag-remove" @click="removeSalaryRange(range)">×</button>
+        </span>
+        <button class="clear-all" @click="clearSalaryRanges">清空</button>
+      </div>
+      <!-- 薪资选择面板 -->
+      <div class="salary-dropdown" v-if="showSalaryPicker">
+        <div class="salary-options">
+          <label
+            v-for="range in salaryRanges"
+            :key="range.value"
+            class="salary-option"
+          >
+            <input
+              type="checkbox"
+              :value="range"
+              v-model="selectedSalaryRanges"
+              @change="onSalaryChange"
+            />
+            <span>{{ range.label }}</span>
+          </label>
+        </div>
+        <div class="salary-actions">
+          <button class="apply-btn" @click="applySalaryRanges">确定</button>
+          <button class="cancel-btn" @click="showSalaryPicker = false">取消</button>
+        </div>
+      </div>
+      <!-- 展开按钮 -->
+      <button
+        class="salary-toggle-btn"
+        @click="showSalaryPicker = !showSalaryPicker"
+      >
+        {{ showSalaryPicker ? '收起' : '选择薪资' }}
+      </button>
+    </div>
+
+    <!-- 行业筛选 -->
+    <div class="industry-filter">
+      <div class="filter-label">🏢 行业：</div>
+      <!-- 已选行业标签 -->
+      <div v-if="selectedIndustries.length > 0" class="selected-tags">
+        <span
+          v-for="ind in selectedIndustries"
+          :key="ind"
+          class="selected-tag"
+        >
+          {{ ind }}
+          <button class="tag-remove" @click="removeIndustry(ind)">×</button>
+        </span>
+        <button class="clear-all" @click="clearIndustries">清空</button>
+      </div>
+      <!-- 行业选择面板 -->
+      <div class="industry-dropdown" v-if="showIndustryPicker">
+        <div class="industry-options">
+          <label
+            v-for="ind in allIndustries"
+            :key="ind.value"
+            class="industry-option"
+          >
+            <input
+              type="checkbox"
+              :value="ind.value"
+              v-model="selectedIndustries"
+              @change="onIndustryChange"
+            />
+            <span>{{ ind.label }}</span>
+          </label>
+        </div>
+        <div class="industry-actions">
+          <button class="apply-btn" @click="applyIndustries">确定</button>
+          <button class="cancel-btn" @click="showIndustryPicker = false">取消</button>
+        </div>
+      </div>
+      <!-- 展开按钮 -->
+      <button
+        class="industry-toggle-btn"
+        @click="showIndustryPicker = !showIndustryPicker"
+      >
+        {{ showIndustryPicker ? '收起' : '选择行业' }}
+      </button>
+    </div>
+
+    <!-- 岗位分类筛选 -->
+    <div class="category-filter">
+      <div class="filter-label">📋 岗位分类：</div>
+      <!-- 已选分类标签 -->
+      <div v-if="selectedCategories.length > 0" class="selected-tags">
+        <span
+          v-for="cat in selectedCategories"
+          :key="cat"
+          class="selected-tag"
+        >
+          {{ cat }}
+          <button class="tag-remove" @click="removeCategory(cat)">×</button>
+        </span>
+        <button class="clear-all" @click="clearCategories">清空</button>
+      </div>
+      <!-- 分类选择面板 -->
+      <div class="category-dropdown" v-if="showCategoryPicker">
+        <div class="category-options">
+          <label
+            v-for="cat in allCategories"
+            :key="cat.value"
+            class="category-option"
+          >
+            <input
+              type="checkbox"
+              :value="cat.value"
+              v-model="selectedCategories"
+              @change="onCategoryChange"
+            />
+            <span>{{ cat.label }}</span>
+          </label>
+        </div>
+        <div class="category-actions">
+          <button class="apply-btn" @click="applyCategories">确定</button>
+          <button class="cancel-btn" @click="showCategoryPicker = false">取消</button>
+        </div>
+      </div>
+      <!-- 展开按钮 -->
+      <button
+        class="category-toggle-btn"
+        @click="showCategoryPicker = !showCategoryPicker"
+      >
+        {{ showCategoryPicker ? '收起' : '选择分类' }}
+      </button>
+    </div>
+
     <!-- 筛选 -->
     <div class="filters">
       <button
@@ -233,7 +371,25 @@ export default {
       // 地点筛选
       selectedLocations: [],
       allLocations: [],
-      showLocationPicker: false
+      showLocationPicker: false,
+      // 薪资筛选
+      selectedSalaryRanges: [],
+      salaryRanges: [
+        { value: '0-10', label: '0-10K' },
+        { value: '10-20', label: '10-20K' },
+        { value: '20-30', label: '20-30K' },
+        { value: '30-50', label: '30-50K' },
+        { value: '50+', label: '50K+' }
+      ],
+      showSalaryPicker: false,
+      // 行业筛选
+      selectedIndustries: [],
+      allIndustries: [],
+      showIndustryPicker: false,
+      // 岗位分类筛选
+      selectedCategories: [],
+      allCategories: [],
+      showCategoryPicker: false
     }
   },
   async created() {
@@ -241,6 +397,7 @@ export default {
     await this.loadJobs()
     await this.loadSavedJobs()
     await this.loadLocations()
+    await this.loadFilterOptions()
   },
   methods: {
     async loadStats() {
@@ -272,6 +429,17 @@ export default {
       }
     },
 
+    async loadFilterOptions() {
+      // 从 API 加载行业和岗位分类
+      try {
+        const res = await jobApi.getFilterOptions()
+        this.allIndustries = res.industries || []
+        this.allCategories = res.job_categories || []
+      } catch (e) {
+        console.error('加载筛选选项失败', e)
+      }
+    },
+
     async loadJobs() {
       this.loading = true
       try {
@@ -282,6 +450,19 @@ export default {
         // 地点筛选
         if (this.selectedLocations.length > 0) {
           params.locations = this.selectedLocations.join(',')
+        }
+        // 薪资筛选
+        if (this.selectedSalaryRanges.length > 0) {
+          const ranges = this.selectedSalaryRanges.map(r => r.value)
+          params.salary_ranges = ranges.join(',')
+        }
+        // 行业筛选
+        if (this.selectedIndustries.length > 0) {
+          params.industry = this.selectedIndustries.join(',')
+        }
+        // 岗位分类筛选
+        if (this.selectedCategories.length > 0) {
+          params.job_category = this.selectedCategories.join(',')
         }
 
         // 来源筛选
@@ -398,6 +579,75 @@ export default {
 
     clearLocations() {
       this.selectedLocations = []
+      this.searchJobs()
+    },
+
+    // 薪资筛选方法
+    onSalaryChange() {
+      this.searchJobs()
+    },
+
+    applySalaryRanges() {
+      this.showSalaryPicker = false
+      this.searchJobs()
+    },
+
+    removeSalaryRange(range) {
+      const idx = this.selectedSalaryRanges.indexOf(range)
+      if (idx > -1) {
+        this.selectedSalaryRanges.splice(idx, 1)
+      }
+      this.searchJobs()
+    },
+
+    clearSalaryRanges() {
+      this.selectedSalaryRanges = []
+      this.searchJobs()
+    },
+
+    // 行业筛选方法
+    onIndustryChange() {
+      this.searchJobs()
+    },
+
+    applyIndustries() {
+      this.showIndustryPicker = false
+      this.searchJobs()
+    },
+
+    removeIndustry(ind) {
+      const idx = this.selectedIndustries.indexOf(ind)
+      if (idx > -1) {
+        this.selectedIndustries.splice(idx, 1)
+      }
+      this.searchJobs()
+    },
+
+    clearIndustries() {
+      this.selectedIndustries = []
+      this.searchJobs()
+    },
+
+    // 岗位分类筛选方法
+    onCategoryChange() {
+      this.searchJobs()
+    },
+
+    applyCategories() {
+      this.showCategoryPicker = false
+      this.searchJobs()
+    },
+
+    removeCategory(cat) {
+      const idx = this.selectedCategories.indexOf(cat)
+      if (idx > -1) {
+        this.selectedCategories.splice(idx, 1)
+      }
+      this.searchJobs()
+    },
+
+    clearCategories() {
+      this.selectedCategories = []
       this.searchJobs()
     }
   }
@@ -685,6 +935,235 @@ export default {
 }
 
 .cancel-btn:hover { background: var(--border); }
+
+/* 薪资筛选 */
+.salary-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.filter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.salary-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  z-index: 50;
+  min-width: 180px;
+}
+
+.salary-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.salary-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.salary-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--blue);
+}
+
+.salary-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.salary-toggle-btn {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--bg-white);
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border);
+  border-radius: 980px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.salary-toggle-btn:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+/* 行业筛选 */
+.industry-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.industry-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  z-index: 50;
+  min-width: 200px;
+}
+
+.industry-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.industry-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.industry-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--blue);
+}
+
+.industry-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.industry-toggle-btn {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--bg-white);
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border);
+  border-radius: 980px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.industry-toggle-btn:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+/* 岗位分类筛选 */
+.category-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.category-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  z-index: 50;
+  min-width: 200px;
+}
+
+.category-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.category-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.category-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--blue);
+}
+
+.category-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.category-toggle-btn {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--bg-white);
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border);
+  border-radius: 980px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.category-toggle-btn:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
 
 /* 筛选 */
 .filters {

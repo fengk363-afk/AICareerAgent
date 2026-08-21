@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import resume, jobs, applications, interview, tracker, auth, resume_versions, career_preference, user, notifications, match, learning, application_events, target_jobs, gap_analysis, recommendation, company_research, job_ranking, job_source, career_goal, ai_agent, application_center, interview_coach, career_agent
+from app.api import resume, jobs, applications, interview, tracker, auth, resume_versions, career_preference, user, notifications, match, learning, application_events, target_jobs, gap_analysis, recommendation, company_research, job_ranking, job_source, career_goal, ai_agent, application_center, interview_coach, career_agent, job_filters
 from app.core.config import get_settings
 from app.db.database import init_db
 from loguru import logger
@@ -45,6 +45,7 @@ app.include_router(ai_agent.router, prefix="/api/v1", tags=["AICareerAgent"])
 app.include_router(application_center.router, prefix="/api/v1/apply", tags=["ApplicationCenter"])
 app.include_router(interview_coach.router, prefix="/api/v1/interview", tags=["InterviewCoach"])
 app.include_router(career_agent.router, prefix="/api/v1/agent", tags=["CareerAgent"])
+app.include_router(job_filters.router, prefix="/api/v1/jobs/filters", tags=["JobFilters"])
 
 
 @app.on_event("startup")

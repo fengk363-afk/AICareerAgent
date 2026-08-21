@@ -135,6 +135,8 @@ class JobResponse(BaseModel):
     graduate_program: bool
     campus_recruitment: bool
     season: Optional[str] = None
+    industry: Optional[str] = None  # 行业
+    job_category: Optional[str] = None  # 岗位分类
     updated_time: Optional[datetime] = None
     posted_at: Optional[datetime] = None
     apply_url: Optional[str] = None

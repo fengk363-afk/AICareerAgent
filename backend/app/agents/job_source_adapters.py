@@ -75,6 +75,8 @@ class JobSourceAdapter(ABC):
             "graduate_program": raw_job.get("graduate_program", False),
             "campus_recruitment": raw_job.get("campus_recruitment", False),
             "season": raw_job.get("season", "regular"),
+            "industry": raw_job.get("industry", None),
+            "job_category": raw_job.get("job_category", None),
             "posted_at": raw_job.get("posted_at", None),
             "apply_url": raw_job.get("apply_url", raw_job.get("url", "")),
             "job_url": raw_job.get("url", ""),

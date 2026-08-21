@@ -130,6 +130,10 @@ export const jobApi = {
     const res = await api.get(`/applications/saved/${userId()}`)
     return res.data
   },
+  getFilterOptions: async () => {
+    const res = await api.get('/jobs/filters/filter-options')
+    return res.data
+  },
   rankJobs: async (profileId, limit = 20) => {
     const res = await api.get(`/jobs/rank/${profileId}`, { params: { user_id: userId(), limit } })
     return res.data
