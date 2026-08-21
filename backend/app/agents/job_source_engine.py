@@ -41,6 +41,7 @@ class JobSourceEngine:
             "company_country": "中国",
             "title": "后端开发工程师（校招）",
             "location": "北京",
+            "locations": ["北京"],
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 25, "max": 45, "unit": "K/月"},
             "description": """【岗位职责】
@@ -94,6 +95,7 @@ class JobSourceEngine:
             "company_country": "中国",
             "title": "前端开发工程师（校招）",
             "location": "杭州",
+            "locations": ["杭州"],
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 25, "max": 40, "unit": "K/月"},
             "description": """【岗位职责】
@@ -147,6 +149,7 @@ class JobSourceEngine:
             "company_country": "中国",
             "title": "算法工程师（校招）",
             "location": "深圳",
+            "locations": ["深圳"],
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 30, "max": 55, "unit": "K/月"},
             "description": """【岗位职责】
@@ -200,6 +203,7 @@ class JobSourceEngine:
             "company_country": "中国",
             "title": "全栈开发工程师（校招）",
             "location": "北京",
+            "locations": ["北京"],
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 25, "max": 45, "unit": "K/月"},
             "description": """【岗位职责】
@@ -253,6 +257,7 @@ class JobSourceEngine:
             "company_country": "中国",
             "title": "移动端开发工程师（校招）",
             "location": "上海",
+            "locations": ["上海"],
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 30, "max": 50, "unit": "K/月"},
             "description": """【岗位职责】
@@ -306,6 +311,7 @@ class JobSourceEngine:
             "company_country": "美国",
             "title": "Software Engineer I (校招)",
             "location": "北京",
+            "locations": ["北京"],
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 40, "max": 70, "unit": "K/月"},
             "description": """【岗位职责】
@@ -359,6 +365,7 @@ class JobSourceEngine:
             "company_country": "美国",
             "title": "Software Engineer - New Grad",
             "location": "上海",
+            "locations": ["上海"],
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 50, "max": 80, "unit": "K/月"},
             "description": """【岗位职责】
@@ -412,6 +419,7 @@ class JobSourceEngine:
             "company_country": "中国",
             "title": "后端开发工程师（校招）",
             "location": "北京",
+            "locations": ["北京"],
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 20, "max": 35, "unit": "K/月"},
             "description": """【岗位职责】
@@ -465,6 +473,7 @@ class JobSourceEngine:
             "company_country": "中国",
             "title": "信息技术岗（校招）",
             "location": "北京",
+            "locations": ["北京"],
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 15, "max": 25, "unit": "K/月"},
             "description": """【岗位职责】
@@ -520,6 +529,7 @@ class JobSourceEngine:
             "company_country": "美国",
             "title": "前端开发工程师（远程）",
             "location": "远程",
+            "locations": ["Remote"],
             "job_type": JobType.FULL_TIME.value,
             "salary_range": {"min": 20, "max": 40, "unit": "K/月"},
             "description": """【岗位职责】
@@ -588,6 +598,9 @@ class JobSourceEngine:
                     job.requirements = data["requirements"]
                     job.preferred_skills = data["preferred_skills"]
                     job.tags = data["tags"]
+                    # 更新 locations（标准化地点列表）
+                    if "locations" in data:
+                        job.locations = data["locations"]
                     updated += 1
                 else:
                     # 新增
@@ -606,6 +619,7 @@ class JobSourceEngine:
         self,
         keyword: Optional[str] = None,
         location: Optional[str] = None,
+        locations: Optional[str] = None,  # 逗号分隔的多地点
         job_type: Optional[str] = None,
         company_type: Optional[str] = None,
         salary_min: Optional[float] = None,
@@ -637,6 +651,13 @@ class JobSourceEngine:
                 )
             if location:
                 query = query.where(Job.location.ilike(f"%{location}%"))
+            if locations:
+                # 多地点筛选：任意地点命中即可（OR 逻辑）
+                loc_list = [l.strip() for l in locations.split(",") if l.strip()]
+                if loc_list:
+                    from sqlalchemy import or_
+                    location_conditions = [Job.locations.contains([loc]) for loc in loc_list]
+                    query = query.where(or_(*location_conditions))
             if job_type:
                 query = query.where(Job.job_type == job_type)
             if company_type:

@@ -15,6 +15,7 @@ router = APIRouter()
 async def list_jobs(
     keyword: Optional[str] = Query(None),
     location: Optional[str] = Query(None),
+    locations: Optional[str] = Query(None),  # 逗号分隔的多地点，如 "广州,深圳"
     job_type: Optional[str] = Query(None),
     company_type: Optional[str] = Query(None),
     salary_min: Optional[float] = Query(None),
@@ -27,8 +28,9 @@ async def list_jobs(
 ):
     """搜索岗位（支持多维度筛选）"""
     return await engine.search_jobs(
-        keyword=keyword, location=location, job_type=job_type,
-        company_type=company_type, salary_min=salary_min, salary_max=salary_max,
+        keyword=keyword, location=location, locations=locations,
+        job_type=job_type, company_type=company_type,
+        salary_min=salary_min, salary_max=salary_max,
         is_foreign=is_foreign, is_remote=is_remote, has_apply_url=has_apply_url,
         limit=limit, offset=offset,
     )

@@ -51,6 +51,52 @@
       </div>
     </div>
 
+    <!-- 地点筛选 -->
+    <div class="location-filter">
+      <div class="location-label">📍 地点：</div>
+      <!-- 已选地点标签 -->
+      <div v-if="selectedLocations.length > 0" class="selected-tags">
+        <span
+          v-for="loc in selectedLocations"
+          :key="loc"
+          class="selected-tag"
+        >
+          {{ loc }}
+          <button class="tag-remove" @click="removeLocation(loc)">×</button>
+        </span>
+        <button class="clear-all" @click="clearLocations">清空</button>
+      </div>
+      <!-- 地点选择面板 -->
+      <div class="location-dropdown" v-if="showLocationPicker">
+        <div class="location-options">
+          <label
+            v-for="loc in allLocations"
+            :key="loc"
+            class="location-option"
+          >
+            <input
+              type="checkbox"
+              :value="loc"
+              v-model="selectedLocations"
+              @change="onLocationChange"
+            />
+            <span>{{ loc }}</span>
+          </label>
+        </div>
+        <div class="location-actions">
+          <button class="apply-btn" @click="applyLocations">确定</button>
+          <button class="cancel-btn" @click="showLocationPicker = false">取消</button>
+        </div>
+      </div>
+      <!-- 展开按钮 -->
+      <button
+        class="location-toggle-btn"
+        @click="showLocationPicker = !showLocationPicker"
+      >
+        {{ showLocationPicker ? '收起' : '选择地点' }}
+      </button>
+    </div>
+
     <!-- 筛选 -->
     <div class="filters">
       <button
@@ -183,13 +229,18 @@ export default {
         { label: '校招', value: 'campus' },
         { label: '外企', value: 'foreign' }
       ],
-      savedJobs: new Set()
+      savedJobs: new Set(),
+      // 地点筛选
+      selectedLocations: [],
+      allLocations: [],
+      showLocationPicker: false
     }
   },
   async created() {
     await this.loadStats()
     await this.loadJobs()
     await this.loadSavedJobs()
+    await this.loadLocations()
   },
   methods: {
     async loadStats() {
@@ -200,6 +251,27 @@ export default {
       }
     },
 
+    async loadLocations() {
+      // 从已有岗位中提取所有地点
+      try {
+        const allJobs = await jobApi.listJobs({ limit: 200 })
+        const locSet = new Set()
+        for (const job of allJobs) {
+          if (job.locations && Array.isArray(job.locations)) {
+            for (const loc of job.locations) {
+              locSet.add(loc)
+            }
+          }
+          if (job.location) {
+            locSet.add(job.location)
+          }
+        }
+        this.allLocations = Array.from(locSet).sort()
+      } catch (e) {
+        console.error('加载地点列表失败', e)
+      }
+    },
+
     async loadJobs() {
       this.loading = true
       try {
@@ -207,6 +279,10 @@ export default {
         if (this.filterRemote) params.is_remote = true
         if (this.filterForeign) params.is_foreign = true
         if (this.filterCampus) params.campus_recruitment = true
+        // 地点筛选
+        if (this.selectedLocations.length > 0) {
+          params.locations = this.selectedLocations.join(',')
+        }
 
         // 来源筛选
         if (this.activeFilter === 'gdrc') {
@@ -250,6 +326,7 @@ export default {
         await jobApi.syncJobs('gd_public')
         await this.loadJobs()
         await this.loadStats()
+        await this.loadLocations()
       } catch (e) {
         console.error('同步失败', e)
         alert('同步失败，请重试')
@@ -264,6 +341,7 @@ export default {
         await jobApi.seedJobs()
         await this.loadJobs()
         await this.loadStats()
+        await this.loadLocations()
       } catch (e) {
         console.error('初始化失败', e)
         alert('初始化失败，请重试')
@@ -297,6 +375,30 @@ export default {
     seasonLabel(season) {
       const map = { spring: '春招', autumn: '秋招', regular: '日常' }
       return map[season] || season
+    },
+
+    // 地点筛选方法
+    onLocationChange() {
+      // checkbox 变化时实时更新
+      this.searchJobs()
+    },
+
+    applyLocations() {
+      this.showLocationPicker = false
+      this.searchJobs()
+    },
+
+    removeLocation(loc) {
+      const idx = this.selectedLocations.indexOf(loc)
+      if (idx > -1) {
+        this.selectedLocations.splice(idx, 1)
+      }
+      this.searchJobs()
+    },
+
+    clearLocations() {
+      this.selectedLocations = []
+      this.searchJobs()
     }
   }
 }
@@ -429,6 +531,159 @@ export default {
 
 .seed-btn:hover:not(:disabled) { background: var(--border); }
 .seed-btn:disabled { cursor: not-allowed; }
+
+/* 地点筛选 */
+.location-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.location-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.selected-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.selected-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--blue-light);
+  color: var(--blue);
+  border-radius: 980px;
+}
+
+.tag-remove {
+  background: none;
+  border: none;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.tag-remove:hover { opacity: 1; }
+
+.clear-all {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  font-family: inherit;
+}
+
+.clear-all:hover { color: var(--blue); }
+
+.location-toggle-btn {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--bg-white);
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border);
+  border-radius: 980px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.location-toggle-btn:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+.location-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  z-index: 50;
+  min-width: 200px;
+}
+
+.location-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.location-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.location-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--blue);
+}
+
+.location-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.apply-btn {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.apply-btn:hover { background: #0077ed; }
+
+.cancel-btn {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--bg);
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cancel-btn:hover { background: var(--border); }
 
 /* 筛选 */
 .filters {

@@ -153,6 +153,7 @@ class Job(Base):
     company_type = Column(String, nullable=True)
     title = Column(String, nullable=False)
     location = Column(String, nullable=False)
+    locations = Column(JSONB, nullable=True)  # 标准化地点列表，如 ["广州", "深圳"]
     job_type = Column(String, nullable=False, default="full_time")
     salary_range = Column(JSONB, nullable=True)
     description = Column(Text, nullable=False)

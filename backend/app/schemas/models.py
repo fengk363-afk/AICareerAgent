@@ -121,6 +121,7 @@ class JobResponse(BaseModel):
     company_country: Optional[str] = None
     title: str
     location: str
+    locations: Optional[List[str]] = None  # 标准化地点列表
     job_type: str
     salary_range: Optional[dict] = None
     description: str

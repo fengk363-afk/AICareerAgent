@@ -19,6 +19,7 @@ _GDRC_JOBS = [
         "company_type": "state_enterprise",
         "title": "人工智能算法工程师",
         "location": "广州",
+        "locations": ["广州"],
         "job_type": "full_time",
         "salary_range": {"min": 18, "max": 30, "unit": "K/月"},
         "description": """【岗位职责】
@@ -71,6 +72,7 @@ _GDRC_JOBS = [
         "company_type": "government",
         "title": "信息化管理岗（公务员）",
         "location": "广州",
+        "locations": ["广州"],
         "job_type": "full_time",
         "salary_range": {"min": 10, "max": 18, "unit": "K/月"},
         "description": """【岗位职责】
@@ -119,6 +121,7 @@ _GDRC_JOBS = [
         "company_type": "state_enterprise",
         "title": "前端开发工程师（校招）",
         "location": "深圳",
+        "locations": ["深圳"],
         "job_type": "full_time",
         "salary_range": {"min": 15, "max": 25, "unit": "K/月"},
         "description": """【岗位职责】
@@ -169,6 +172,7 @@ _GDRC_JOBS = [
         "company_type": "state_enterprise",
         "title": "嵌入式软件工程师",
         "location": "珠海",
+        "locations": ["珠海"],
         "job_type": "full_time",
         "salary_range": {"min": 16, "max": 28, "unit": "K/月"},
         "description": """【岗位职责】
@@ -220,6 +224,7 @@ _GDRC_JOBS = [
         "company_type": "government",
         "title": "产业服务专员（校招）",
         "location": "东莞",
+        "locations": ["东莞"],
         "job_type": "full_time",
         "salary_range": {"min": 8, "max": 14, "unit": "K/月"},
         "description": """【岗位职责】
@@ -277,6 +282,7 @@ _GDPUBLIC_JOBS = [
         "company_type": "government",
         "title": "人力资源助理（劳务派遣）",
         "location": "广州",
+        "locations": ["广州"],
         "job_type": "full_time",
         "salary_range": {"min": 6, "max": 10, "unit": "K/月"},
         "description": """【岗位职责】
@@ -325,6 +331,7 @@ _GDPUBLIC_JOBS = [
         "company_type": "government",
         "title": "就业服务专员（校招）",
         "location": "佛山",
+        "locations": ["佛山"],
         "job_type": "full_time",
         "salary_range": {"min": 7, "max": 12, "unit": "K/月"},
         "description": """【岗位职责】
@@ -373,6 +380,7 @@ _GDPUBLIC_JOBS = [
         "company_type": "government",
         "title": "职业指导师",
         "location": "广州",
+        "locations": ["广州"],
         "job_type": "full_time",
         "salary_range": {"min": 8, "max": 15, "unit": "K/月"},
         "description": """【岗位职责】
@@ -421,6 +429,7 @@ _GDPUBLIC_JOBS = [
         "company_type": "government",
         "title": "数据分析师（校招）",
         "location": "深圳",
+        "locations": ["深圳"],
         "job_type": "full_time",
         "salary_range": {"min": 10, "max": 18, "unit": "K/月"},
         "description": """【岗位职责】
@@ -469,6 +478,7 @@ _GDPUBLIC_JOBS = [
         "company_type": "government",
         "title": "信息化运维工程师",
         "location": "广州",
+        "locations": ["广州"],
         "job_type": "full_time",
         "salary_range": {"min": 9, "max": 16, "unit": "K/月"},
         "description": """【岗位职责】
@@ -517,6 +527,7 @@ _GDPUBLIC_JOBS = [
         "company_type": "government",
         "title": "招聘专员（校招）",
         "location": "惠州",
+        "locations": ["惠州"],
         "job_type": "full_time",
         "salary_range": {"min": 6, "max": 10, "unit": "K/月"},
         "description": """【岗位职责】

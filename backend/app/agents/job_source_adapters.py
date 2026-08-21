@@ -41,6 +41,16 @@ class JobSourceAdapter(ABC):
 
     def normalize_job(self, raw_job: Dict[str, Any]) -> Dict[str, Any]:
         """标准化岗位数据"""
+        # 标准化 locations：从 location 字符串派生，或直接使用 raw 中的 locations
+        location_str = raw_job.get("location", "")
+        raw_locations = raw_job.get("locations", None)
+        if raw_locations and isinstance(raw_locations, list):
+            locations = raw_locations
+        elif location_str:
+            # 从逗号/顿号分隔的字符串派生
+            locations = [l.strip() for l in location_str.replace("、", ",").split(",") if l.strip()]
+        else:
+            locations = []
         return {
             "source": self.source_name,
             "source_type": self.source_type,
@@ -49,7 +59,8 @@ class JobSourceAdapter(ABC):
             "company": raw_job.get("company", ""),
             "company_type": raw_job.get("company_type", None),
             "title": raw_job.get("title", ""),
-            "location": raw_job.get("location", ""),
+            "location": location_str,
+            "locations": locations if locations else None,
             "job_type": raw_job.get("job_type", "full_time"),
             "salary_range": raw_job.get("salary_range", None),
             "description": raw_job.get("description", ""),
