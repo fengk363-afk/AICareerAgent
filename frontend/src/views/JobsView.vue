@@ -591,21 +591,19 @@ export default {
 
       // 合并 job.tags 和系统标签到一个统一数组
       const allTags = [...(job.tags || [])]
-      const systemTags = []
-      if (job.source === 'gdrc') systemTags.push('广东人才网')
-      if (job.source === 'gd_public') systemTags.push('公共招聘')
-      if (job.is_remote) systemTags.push('远程')
-      if (job.is_foreign) systemTags.push('外企')
-      if (job.campus_recruitment) systemTags.push('校招')
-      if (job.season) systemTags.push(this.seasonLabel(job.season))
-      allTags.push(...systemTags)
+      if (job.source === 'gdrc') allTags.push('广东人才网')
+      if (job.source === 'gd_public') allTags.push('公共招聘')
+      if (job.is_remote) allTags.push('远程')
+      if (job.is_foreign) allTags.push('外企')
+      if (job.campus_recruitment) allTags.push('校招')
+      if (job.season) allTags.push(this.seasonLabel(job.season))
 
-      // 统一 normalizeTag 并去重
+      // 统一 normalizeTag 后去重，显示标准化文本
       for (const tag of allTags) {
         const normalized = this.normalizeTag(tag)
         if (normalized && !normalizedSet.has(normalized)) {
           normalizedSet.add(normalized)
-          result.push(tag)
+          result.push(normalized)
         }
       }
 
