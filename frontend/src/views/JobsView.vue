@@ -298,16 +298,10 @@
         <div class="job-header">
           <div class="job-company">{{ job.company }}</div>
           <div class="job-tags">
-            <span v-if="job.source === 'gdrc'" class="tag gdrc">广东人才网</span>
-            <span v-if="job.source === 'gd_public'" class="tag gd_public">公共招聘</span>
-            <span v-if="job.is_remote && !hasNormalizedTag(job, '远程')" class="tag remote">远程</span>
-            <span v-if="job.is_foreign && !hasNormalizedTag(job, '外企')" class="tag foreign">外企</span>
-            <span v-if="job.campus_recruitment && !hasNormalizedTag(job, '校招')" class="tag campus">校招</span>
-            <span v-if="job.season && !hasNormalizedTag(job, seasonLabel(job.season))" class="tag season">{{ seasonLabel(job.season) }}</span>
             <span
               v-for="tag in getUniqueJobTags(job)"
               :key="tag"
-              class="tag"
+              :class="['tag', tagClass(tag)]"
             >{{ tag }}</span>
           </div>
         </div>
@@ -576,12 +570,27 @@ export default {
       return normalizedTags.includes(this.normalizeTag(tagName))
     },
 
+    // 根据标签文本返回对应的 CSS class
+    tagClass(tag) {
+      const map = {
+        '广东人才网': 'gdrc',
+        '公共招聘': 'gd_public',
+        '远程': 'remote',
+        '外企': 'foreign',
+        '校招': 'campus'
+      }
+      if (map[tag]) return map[tag]
+      if (['春招', '秋招', '日常'].includes(tag)) return 'season'
+      return ''
+    },
+
     // 获取去重后的岗位标签
     getUniqueJobTags(job) {
       const normalizedSet = new Set()
       const result = []
 
-      // 先添加系统标签的标准化文本
+      // 合并 job.tags 和系统标签到一个统一数组
+      const allTags = [...(job.tags || [])]
       const systemTags = []
       if (job.source === 'gdrc') systemTags.push('广东人才网')
       if (job.source === 'gd_public') systemTags.push('公共招聘')
@@ -589,11 +598,10 @@ export default {
       if (job.is_foreign) systemTags.push('外企')
       if (job.campus_recruitment) systemTags.push('校招')
       if (job.season) systemTags.push(this.seasonLabel(job.season))
+      allTags.push(...systemTags)
 
-      systemTags.forEach(tag => normalizedSet.add(this.normalizeTag(tag)))
-
-      // 再添加 job.tags 中未重复的标签
-      for (const tag of (job.tags || [])) {
+      // 统一 normalizeTag 并去重
+      for (const tag of allTags) {
         const normalized = this.normalizeTag(tag)
         if (normalized && !normalizedSet.has(normalized)) {
           normalizedSet.add(normalized)
