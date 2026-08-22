@@ -249,14 +249,6 @@
         :class="['filter-btn', { active: filterRemote }]"
         @click="filterRemote = !filterRemote; searchJobs()"
       >🏠 远程</button>
-      <button
-        :class="['filter-btn', { active: filterForeign }]"
-        @click="filterForeign = !filterForeign; searchJobs()"
-      >🌍 外企</button>
-      <button
-        :class="['filter-btn', { active: filterCampus }]"
-        @click="filterCampus = !filterCampus; searchJobs()"
-      >🎓 校招</button>
     </div>
 
     <!-- 排序 -->
