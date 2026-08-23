@@ -101,16 +101,24 @@ class ResumeAgent:
         }
 
     async def _extract_project_experience(self, text: str) -> list:
-        """提取项目经历（MVP 简单规则）"""
+        """提取项目经历（支持多种PDF文本格式）"""
         from app.schemas.models import ProjectExperienceItem
         projects = []
+
         # 先定位"项目经历"章节
         项目经历_match = re.search(r'项目经历', text)
         if not 项目经历_match:
+            logger.info("[Project] 未找到'项目经历'章节")
             return []
+
         section_text = text[项目经历_match.start():]
-        # 找到下一个章节作为边界
-        all_sections = ['联系方式', '求职信息', '资格证书', '个人优势', '教育经历', '实习经历', '专业技能']
+
+        # 找到下一个章节作为边界（扩展边界关键词）
+        all_sections = [
+            '联系方式', '求职信息', '资格证书', '个人优势', '教育经历',
+            '实习经历', '工作经历', '专业技能', '技能', '自我评价',
+            '语言能力', '证书', '荣誉'
+        ]
         end = len(section_text)
         for sec in all_sections:
             sec_pattern = re.compile(r'^(?:' + re.escape(sec) + r'\s*(?::|：)\s*|' + re.escape(sec) + r'\s*)', re.MULTILINE)
@@ -118,25 +126,81 @@ class ResumeAgent:
             if next_match and next_match.start() < end:
                 end = next_match.start()
         section_text = section_text[:end]
+        logger.info(f"[Project] 项目章节长度: {len(section_text)} 字符")
 
-        # 匹配格式：项目名 · 角色 · 时间
-        pattern = r"(?:^|\n)\s*[·\-—]?\s*(.+?)\s*[·]\s*([^\n·]+?)\s*[·]\s*(\d{4}[\./年]\d{1,2})[\-—~至]\s*(\d{4}[\./年]\d{1,2}|至今)"
-        matches = re.findall(pattern, section_text)
-        for m in matches:
-            project_name = m[0].strip()
-            role = m[1].strip()
-            # 过滤无效项目名
-            if not project_name or project_name in ("-", "项目经历") or len(project_name) < 2:
+        # 按行解析项目
+        lines = section_text.split('\n')
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if not line:
+                i += 1
                 continue
-            # 过滤"项目:"前缀的行（避免重复）
-            if project_name.startswith("项目:"):
+
+            # 检测项目标题行：包含日期模式 (20XX.XX-20XX 或 20XX-至今)
+            date_match = re.search(r'(20\d{2})[./年]\d{1,2}[-—~至](20\d{2}|至今)', line)
+            if date_match and not line.startswith(('1.', '2.', '3.', '4.', '5.')):
+                # 这是一个项目标题行
+                project_name = ''
+                role = ''
+
+                # 尝试解析：项目名 角色 时间
+                # 移除行尾的日期部分
+                date_part = date_match.group(0)
+                before_date = line[:date_match.start()].strip()
+
+                # 分割项目名和角色
+                parts = before_date.split()
+                if parts:
+                    project_name = parts[0]
+                    # 角色可能是后面的部分
+                    if len(parts) > 1:
+                        role = ' '.join(parts[1:])
+
+                # 收集描述行（缩进或以数字开头的行）
+                description_lines = []
+                j = i + 1
+                while j < len(lines):
+                    next_line = lines[j].strip()
+                    # 遇到空行则跳过（可能只是格式问题）
+                    if not next_line:
+                        j += 1
+                        continue
+                    # 遇到新的项目标题行则停止（检查是否包含日期模式）
+                    if re.search(r'(20\d{2})[./年]\d{1,2}[-—~至](20\d{2}|至今)', next_line):
+                        break
+                    # 遇到章节标题则停止
+                    if re.match(r'^(联系方式|求职信息|资格证书|个人优势|教育经历|实习经历|工作经历|专业技能|技能|自我评价|语言能力|证书|荣誉)\s*[:：]?\s*$', next_line):
+                        break
+                    # 收集描述行
+                    if next_line.startswith(('1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.', '9.')):
+                        description_lines.append(next_line)
+                    elif re.match(r'^[·•\-]', next_line):
+                        description_lines.append(next_line)
+                    elif re.match(r'^[一二三四五六七八九十]+[.、)]', next_line):
+                        description_lines.append(next_line)
+                    else:
+                        # 连续的描述文本（非标题行）
+                        description_lines.append(next_line)
+                    j += 1
+
+                # 过滤无效项目名
+                if project_name and len(project_name) >= 2 and project_name not in ('项目经历', '-'):
+                    description = ' '.join(description_lines)[:500] if description_lines else ''
+                    projects.append(ProjectExperienceItem(
+                        project_name=project_name,
+                        date=date_part,
+                        role=role,
+                        description=description,
+                    ))
+                    logger.info(f"[Project] 提取项目: {project_name}, 角色: {role}, 描述长度: {len(description)}")
+
+                i = j
                 continue
-            projects.append(ProjectExperienceItem(
-                project_name=project_name,
-                role=role,
-                duration=f"{m[2].replace('年', '.')}-{m[3].replace('年', '.') if m[3] != '至今' else '至今'}",
-                description="",
-            ))
+
+            i += 1
+
+        logger.info(f"[Project] 共提取到 {len(projects)} 个项目经历")
         return projects[:5]
 
     async def _extract_skills(self, text: str) -> List[SkillItem]:
