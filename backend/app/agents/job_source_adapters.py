@@ -270,14 +270,29 @@ ADAPTER_REGISTRY: Dict[str, JobSourceAdapter] = {
 }
 
 
+def _get_greenhouse_source():
+    """延迟导入 Greenhouse 适配器，避免循环导入"""
+    from app.agents.sources.greenhouse_source import GreenhouseSource
+    return GreenhouseSource()
+
+
 def get_adapter(source_name: str) -> Optional[JobSourceAdapter]:
     """获取适配器"""
+    if source_name == "greenhouse":
+        return _get_greenhouse_source()
     return ADAPTER_REGISTRY.get(source_name)
 
 
 def list_adapters() -> List[Dict[str, str]]:
     """列出所有适配器"""
-    return [
+    adapters = [
         {"source_name": name, "source_type": adapter.source_type, "base_url": adapter.base_url}
         for name, adapter in ADAPTER_REGISTRY.items()
     ]
+    # 添加 Greenhouse
+    adapters.append({
+        "source_name": "greenhouse",
+        "source_type": "api",
+        "base_url": "https://boards-api.greenhouse.io/v1"
+    })
+    return adapters
