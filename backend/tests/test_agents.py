@@ -418,5 +418,186 @@ class TestResumeEngineSkills:
         assert "java" in names
 
 
+# ── ResumeEngine 项目解析测试 ────────────────────────────────────
+
+class TestResumeEngineProjects:
+    """测试 ResumeEngine._parse_project_lines() 方法"""
+
+    def test_project_name_full_extraction(self):
+        """测试项目名称完整提取，不因空格split截断"""
+        from app.agents.resume_engine import ResumeEngine
+        engine = ResumeEngine()
+
+        lines = [
+            "项目经历",
+            "Ai Career Agent（Ai求职赋能工具原型）",
+            "产品需求设计/项目负责人 2026.08-至今",
+            "1.规划网页核心能力：整合公开海内外、外企招聘信息做岗位智能推荐，降低求职信息",
+            "2.梳理整体业务与交互逻辑，设置 AI 输出校验规则。",
+        ]
+
+        result = engine._parse_project_lines(lines)
+        names = [p.project_name for p in result]
+
+        # 验证项目名称完整（可能包含后续内容）
+        assert any("Ai Career Agent（Ai求职赋能工具原型）" in name for name in names), "项目名称应完整提取"
+        assert any("产品需求设计" in name for name in names), "产品需求设计应作为项目名"
+
+    def test_description_not_as_project_name(self):
+        """测试描述内容不作为项目名"""
+        from app.agents.resume_engine import ResumeEngine
+        engine = ResumeEngine()
+
+        lines = [
+            "项目经历",
+            "Ai Career Agent（Ai求职赋能工具原型）",
+            "产品需求设计/项目负责人 2026.08-至今",
+            "1.规划网页核心能力：整合公开海内外、外企招聘信息做岗位智能推荐，降低求职信息",
+            "2.梳理整体业务与交互逻辑，设置 AI 输出校验规则。",
+        ]
+
+        result = engine._parse_project_lines(lines)
+        names = [p.project_name for p in result]
+
+        # 验证描述内容不作为项目名
+        assert "规划网页核心能力：整合公开海内外、外企招聘信息做岗位智能推荐，降低求职信息" not in names
+
+    def test_date_on_separate_line(self):
+        """测试日期独立行时项目仍能正确识别"""
+        from app.agents.resume_engine import ResumeEngine
+        engine = ResumeEngine()
+
+        lines = [
+            "项目经历",
+            "德国IFA国际电子展 徕芬展台统筹协助",
+            "2025.08-2025.09",
+            "1. 海外展台整体策划与设计：协助品牌海外展台空间布局。",
+            "2. 展会全链路采购管理：统筹展台搭建物料。",
+        ]
+
+        result = engine._parse_project_lines(lines)
+        names = [p.project_name for p in result]
+        dates = [p.date for p in result]
+
+        # 验证项目被识别
+        assert "德国IFA国际电子展 徕芬展台统筹协助" in names, "德国IFA项目应被识别"
+        # 验证日期被提取
+        assert any("2025" in d for d in dates), "日期应被提取"
+
+    def test_pdf_broken_lines_merge(self):
+        """测试PDF断行合并：A/PI、竞品数/据、进度追/踪等应合并"""
+        from app.agents.resume_engine import ResumeEngine
+        engine = ResumeEngine()
+
+        lines = [
+            "项目经历",
+            "Ai Career Agent（Ai求职赋能工具原型）",
+            "产品需求设计/项目负责人 2026.08-至今",
+            "1.规划网页核心能力：整合公开海内外、外企招聘信息做岗位智能推荐，降低求职信息",
+            "搜集门槛；搭建简历‑岗位匹配模块，可依据目标 JD 给出简历微调建议，配套面试辅助",
+            "问答素材。",
+            "2.梳理整体业务与交互逻辑，设置 AI 输出校验规则，过滤 AI 幻觉与无效输出；持续迭",
+            "代交互体验，项目尚在功能打磨阶段，暂未正式上线。",
+        ]
+
+        result = engine._parse_project_lines(lines)
+        names = [p.project_name for p in result]
+        descriptions = [p.description for p in result]
+
+        # 验证断行已合并（项目名称可能包含后续内容）
+        assert any("Ai Career Agent（Ai求职赋能工具原型）" in name for name in names)
+        assert any("产品需求设计" in name for name in names)
+
+        # 验证描述已合并
+        full_desc = " ".join(descriptions)
+        assert "面试辅助" in full_desc, "断行应被合并"
+        assert "持续" in full_desc, "断行应被合并"
+
+        # 验证不会产生断行碎片
+        for name in names:
+            assert "实现批量数据清洗、A" not in name
+            assert "PI接口调用" not in name
+            assert "据搜集" not in name
+            assert "持续迭" not in name
+
+    def test_real_resume_projects(self):
+        """测试真实简历的项目解析"""
+        import asyncio
+        import asyncpg
+        from app.agents.resume_engine import ResumeEngine
+
+        async def run_test():
+            conn = await asyncpg.connect('postgresql://postgres:postgres@localhost:5432/aicareragent')
+            row = await conn.fetchrow("SELECT parsed_text FROM resume_profiles WHERE id = '02eb166b-0747-4431-957a-3a510c07319c'")
+            await conn.close()
+            parsed_text = row[0]
+
+            engine = ResumeEngine()
+            sections = engine._detect_sections(parsed_text)
+
+            # Find project section
+            for s in sections:
+                if s['name'] == 'project':
+                    result = engine._parse_project_lines(s['lines'])
+                    names = [p.project_name for p in result]
+
+                    # 验证关键项目被识别
+                    assert any("Ai Career Agent（Ai求职赋能工具原型）" in name for name in names), "应包含 Ai Career Agent"
+                    assert any("德国IFA国际电子展" in name or "德国IFA" in name for name in names), "应包含 德国IFA国际电子展"
+                    assert any("个人社媒账号运营" in name for name in names), "应包含 个人社媒账号运营"
+                    assert any("商业广告策划" in name for name in names), "应包含 商业广告策划"
+
+                    # 验证不会产生错误的project_name
+                    bad_names = [
+                        "规划网页核心能力：整合公开海内外、外企招聘信息做岗位智能推荐，降低求职信息",
+                        "搜集门槛；搭建简历‑岗位匹配模块",
+                        "问答素材。",
+                        "内容方向",
+                    ]
+                    for bad in bad_names:
+                        assert bad not in names, f"不应包含错误的project_name: {bad}"
+
+                    # 验证项目数量合理（约4-5个）
+                    assert 3 <= len(result) <= 6, f"应有约4-5个项目，实际: {len(result)}"
+
+                    # 验证每个项目都有合理的date或description
+                    for p in result:
+                        if p.date:
+                            assert len(p.date) > 0, f"日期不应为空: {p.project_name}"
+                        if p.description:
+                            assert len(p.description) > 0, f"描述不应为空: {p.project_name}"
+
+                    return
+
+            raise AssertionError("未找到 project 章节")
+
+        asyncio.run(run_test())
+
+    def test_empty_input(self):
+        """测试空输入"""
+        from app.agents.resume_engine import ResumeEngine
+        engine = ResumeEngine()
+        result = engine._parse_project_lines([])
+        assert len(result) == 0
+
+    def test_section_header_skipped(self):
+        """测试章节标题被跳过"""
+        from app.agents.resume_engine import ResumeEngine
+        engine = ResumeEngine()
+
+        lines = [
+            "项目经历",
+            "测试项目 2024.01-2024.06",
+            "1. 项目描述。",
+        ]
+
+        result = engine._parse_project_lines(lines)
+        names = [p.project_name for p in result]
+
+        # 验证章节标题不作为项目名
+        assert "项目经历" not in names
+        assert "测试项目" in names
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

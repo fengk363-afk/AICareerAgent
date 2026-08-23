@@ -26,7 +26,7 @@ class ResumeEngine:
     # ── 章节关键词（中英文兼容）────────────────────────────────────
     SECTION_PATTERNS = {
         "education": [
-            r'^教育(背景|经历)?\s*[:：]', r'^education', r'^academic', r'^qualifications',
+            r'^教育(背景|经历)?\s*[:：]?', r'^education', r'^academic', r'^qualifications',
             r'^学历', r'^学位',
         ],
         "experience": [
@@ -644,41 +644,58 @@ class ResumeEngine:
     # ── 项目经历解析 ──────────────────────────────────────────────
 
     def _parse_project_lines(self, lines: List[str]) -> List[ProjectExperienceItem]:
-        """解析项目经历行"""
+        """解析项目经历行（支持多行合并）"""
         projects = []
-        i = 0
-        while i < len(lines):
-            line = lines[i].strip()
-            if not line:
-                i += 1
-                continue
-            # 跳过章节标题
-            if re.match(r'^(项目|project)', line, re.IGNORECASE):
-                i += 1
-                continue
 
-            proj = self._parse_single_project(line, lines, i)
+        # ── 步骤1：合并PDF断行 ──────────────────────────────────────
+        # 以日期模式开头的行是新项目条目，后续行是上一行的延续
+        merged_entries = []
+        current_entry = None
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            # 跳过章节标题行
+            if re.match(r'^(项目|project)', line, re.IGNORECASE):
+                continue
+            # 检查是否包含日期模式
+            has_date = bool(re.search(r'\d{4}[\./年]\d{1,2}[\-—~至](?:\d{4}[\./年]\d{1,2}|至今)', line))
+            if has_date:
+                # 有日期的行开始新条目
+                if current_entry:
+                    merged_entries.append(current_entry)
+                current_entry = line
+            else:
+                # 无日期的行合并到当前条目
+                if current_entry:
+                    current_entry += ' ' + line
+                else:
+                    current_entry = line
+        if current_entry:
+            merged_entries.append(current_entry)
+
+        # ── 步骤2：后处理合并 ──────────────────────────────────────
+        # 如果前一个条目无日期且较短（可能是断行），后一个条目有日期，则合并
+        final_entries = []
+        for entry in merged_entries:
+            has_date = bool(re.search(r'\d{4}[\./年]\d{1,2}[\-—~至](?:\d{4}[\./年]\d{1,2}|至今)', entry))
+            if final_entries:
+                prev_has_date = bool(re.search(r'\d{4}[\./年]\d{1,2}[\-—~至](?:\d{4}[\./年]\d{1,2}|至今)', final_entries[-1]))
+                # 只有当前一个条目无日期、较短（可能是断行），且当前条目有日期时才合并
+                if not prev_has_date and has_date and len(final_entries[-1]) < 30:
+                    final_entries[-1] += ' ' + entry
+                    continue
+            final_entries.append(entry)
+
+        # ── 步骤3：解析每个条目 ──────────────────────────────────────
+        for entry in final_entries:
+            proj = self._parse_single_project(entry)
             if proj:
                 projects.append(proj)
-                # 跳过已消耗的描述行
-                j = i + 1
-                while j < len(lines):
-                    next_line = lines[j].strip()
-                    if not next_line:
-                        j += 1
-                        continue
-                    if self._is_project_line(next_line) or self._is_experience_line(next_line):
-                        break
-                    if re.match(r'^(项目|工作|实习|教育|技能)', next_line, re.IGNORECASE):
-                        break
-                    j += 1
-                i = j
-            else:
-                i += 1
 
         return projects
 
-    def _parse_single_project(self, line: str, all_lines: List[str], start_idx: int) -> Optional[ProjectExperienceItem]:
+    def _parse_single_project(self, line: str) -> Optional[ProjectExperienceItem]:
         """解析单条项目经历"""
         clean = re.sub(r'^[\d\-\*•·○●\.\s]+', '', line).strip()
         if not clean:
@@ -687,8 +704,7 @@ class ResumeEngine:
         project_name = ""
         role = ""
         date = ""
-        description_lines = []
-        achievement = ""
+        description = ""
 
         # 提取时间
         time_match = re.search(r'((?:\d{4}[\./年]\d{1,2})[\-—~至](?:\d{4}[\./年]\d{1,2}|至今))', clean)
@@ -702,6 +718,11 @@ class ResumeEngine:
         # 解析项目名和角色
         if '·' in before_time:
             parts = before_time.rsplit(' · ', 1)
+            project_name = parts[0].strip()
+            role = parts[1].strip() if len(parts) > 1 else ""
+        elif '/' in before_time:
+            # 使用 / 分隔，如 "产品需求设计/项目负责人"
+            parts = before_time.split('/')
             project_name = parts[0].strip()
             role = parts[1].strip() if len(parts) > 1 else ""
         else:
@@ -731,31 +752,25 @@ class ResumeEngine:
             else:
                 date = time_str.replace('年', '.')
 
-        # 收集描述行
-        j = start_idx + 1
-        while j < len(all_lines):
-            next_line = all_lines[j].strip()
-            if not next_line:
-                j += 1
-                continue
-            if self._is_project_line(next_line) or self._is_experience_line(next_line):
-                break
-            if re.match(r'^(项目|工作|实习|教育|技能)', next_line, re.IGNORECASE):
-                break
-            description_lines.append(next_line)
-            j += 1
+        # 过滤无效项目名
+        if not project_name or len(project_name) < 2:
+            return None
+        if project_name in ('项目经历', '项目', '-'):
+            return None
+        # 过滤以动作词开头的条目（可能是描述句）
+        if any(project_name.startswith(w) for w in self.ACTION_WORDS):
+            return None
+        # 过滤以句号结尾的条目（可能是句子碎片）
+        if project_name.endswith('。') or project_name.endswith('.'):
+            return None
 
-        description = "\n".join(description_lines).strip()
+        # 从原始条目中提取描述（时间之后的内容）
+        if time_match:
+            description = clean[time_match.end():].strip()
+            description = re.sub(r'^[·\-—\s]+', '', description).strip()
 
         # 从描述中提取成就（量化结果）
         achievement = self._extract_achievement(description)
-
-        # 过滤验证
-        if not project_name or len(project_name) < 2:
-            return None
-        # 项目名不能包含动作词
-        if any(w in project_name for w in self.ACTION_WORDS):
-            return None
 
         return ProjectExperienceItem(
             project_name=project_name,
