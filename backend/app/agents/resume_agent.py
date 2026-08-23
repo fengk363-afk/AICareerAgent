@@ -189,13 +189,14 @@ class ResumeAgent:
         return experiences[:5]
 
     async def _extract_education(self, text: str) -> List[EducationItem]:
-        """规则提取教育背景"""
+        """规则提取教育背景（支持多种PDF文本格式）"""
         educations = []
+
+        # ── 方法1：原有单行 · 分隔格式 ──────────────────────────────
         edu_pattern = r"(?:^|\n)\s*([^\n·]+?)\s*[·]\s*([^\n·]+?)\s*[·]\s*([^\n·]+?)\s*[·]\s*([\d\.]+)\s*[-—]\s*([\d\.]+)"
         matches = re.findall(edu_pattern, text)
         for m in matches:
             school = m[0].strip()
-            # 移除"教育背景:"前缀
             school = re.sub(r'^(教育背景|教育经历)\s*[:：]\s*', '', school)
             educations.append(EducationItem(
                 school=school,
@@ -204,7 +205,94 @@ class ResumeAgent:
                 start_year=int(m[3].split(".")[0]) if m[3] else None,
                 end_year=int(m[4].split(".")[0]) if m[4] else None,
             ))
-        return educations[:3]
+
+        # ── 方法2：换行分隔格式 ─────────────────────────────────────
+        # 检测教育背景区块，逐行解析
+        edu_keywords = r'(?:教育背景|教育经历|学历|大学|学院)'
+        lines = text.split('\n')
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            # 检测教育标题行
+            if re.search(edu_keywords, line, re.IGNORECASE):
+                # 尝试从同一行或后续行提取信息
+                block_lines = [line]
+                j = i + 1
+                # 收集后续相关行（直到遇到下一个大标题）
+                while j < len(lines) and j < i + 6:
+                    next_line = lines[j].strip()
+                    if next_line and not re.search(r'(?:工作经历|实习经历|项目经历|技能|联系方式|个人优势)', next_line):
+                        block_lines.append(next_line)
+                    j += 1
+
+                # 尝试从块中提取教育信息
+                block_text = ' '.join(block_lines)
+                # 提取学校名（常见模式：XX大学、XX学院）
+                school_match = re.search(r'([一-龥]+(?:大学|学院|系|校))', block_text)
+                school = school_match.group(1) if school_match else None
+
+                # 提取学历
+                degree_match = re.search(r'(?:本科|硕士|博士|大专|专科)', block_text)
+                degree = degree_match.group(0) if degree_match else '未知'
+
+                # 提取专业
+                major_match = re.search(r'(?:专业[：:]?\s*|([一-龥]+(?:计算机|软件|电子|机械|经济|管理|文学|理学|工学|医学|法学)))', block_text)
+                major = major_match.group(1) if major_match else ''
+
+                # 提取年份
+                year_matches = re.findall(r'(20\d{2})\s*[-—~到至]\s*(20\d{2}|至今)', block_text)
+                start_year = int(year_matches[0][0]) if year_matches else None
+                end_year = int(year_matches[0][1].replace('至今', '2026')) if year_matches and year_matches[0][1] != '至今' else None
+
+                if school:
+                    educations.append(EducationItem(
+                        school=school,
+                        degree=degree,
+                        major=major,
+                        start_year=start_year,
+                        end_year=end_year,
+                    ))
+                i = j
+                continue
+            i += 1
+
+        # ── 方法3：全局扫描学校名称模式 ──────────────────────────────
+        if not educations:
+            school_pattern = r'([一-龥]{2,}(?:大学|学院|系|校))'
+            school_matches = re.findall(school_pattern, text)
+            for school in school_matches[:3]:
+                # 查找该学校附近的学历和专业信息
+                school_idx = text.find(school)
+                context = text[max(0, school_idx-100):min(len(text), school_idx+200)]
+
+                degree_match = re.search(r'(本科|硕士|博士|大专)', context)
+                degree = degree_match.group(1) if degree_match else '未知'
+
+                major_match = re.search(r'(计算机|软件|电子|机械|经济|管理|文学|理学|工学|医学|法学|金融|会计|外语|法律|教育)', context)
+                major = major_match.group(1) if major_match else ''
+
+                year_matches = re.findall(r'(20\d{2})\s*[-—~到至]\s*(20\d{2}|至今)', context)
+                start_year = int(year_matches[0][0]) if year_matches else None
+                end_year = int(year_matches[0][1].replace('至今', '2026')) if year_matches and year_matches[0][1] != '至今' else None
+
+                educations.append(EducationItem(
+                    school=school,
+                    degree=degree,
+                    major=major,
+                    start_year=start_year,
+                    end_year=end_year,
+                ))
+
+        # 去重（基于学校名）
+        seen_schools = set()
+        unique_educations = []
+        for edu in educations:
+            if edu.school and edu.school not in seen_schools:
+                seen_schools.add(edu.school)
+                unique_educations.append(edu)
+
+        logger.info(f"[Education] 提取到 {len(unique_educations)} 条教育背景: {[e.school for e in unique_educations]}")
+        return unique_educations[:3]
 
     async def _analyze_strengths(self, skills: List[dict], experience: List[dict]) -> dict:
         """生成能力优势分析"""
