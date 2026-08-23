@@ -222,5 +222,201 @@ class TestSchemas:
         assert q.category == "behavioral"
 
 
+# ── ResumeEngine 技能解析测试 ────────────────────────────────────
+
+class TestResumeEngineSkills:
+    """测试 ResumeEngine._parse_skills_lines() 方法"""
+
+    def test_pdf_broken_lines_merge(self):
+        """测试PDF断行合并：A/PI、竞品数/据、进度追/踪等应合并"""
+        from app.agents.resume_engine import ResumeEngine
+        engine = ResumeEngine()
+
+        # 模拟PDF断行文本
+        lines = [
+            "· AI数据协助：Claude Code用于编写轻量级Python/Shell脚本，实现批量数据清洗、A",
+            "PI接口调用、报表自动生成，提升数据处理效率。",
+            "· 市场调研：熟练使用Google Trends、Statista、similarweb等进行行业趋势与竞品数",
+            "据搜集，输出市场洞察报告。",
+            "· 项目管理：熟练运用Notion、Asana进行项目拆解、任务分配、甘特图排期与进度追",
+            "踪，确保多线程协作高效执行。",
+        ]
+
+        result = engine._parse_skills_lines(lines)
+        names = [s.name for s in result]
+
+        # 验证断行已合并
+        assert "AI数据协助" in names, "AI数据协助 应被正确识别"
+        assert "市场调研" in names, "市场调研 应被正确识别"
+        assert "项目管理" in names, "项目管理 应被正确识别"
+
+        # 验证不会产生断行碎片
+        for name in names:
+            assert not name.startswith("PI"), f"不应产生断行碎片: {name}"
+            assert not name.startswith("据"), f"不应产生断行碎片: {name}"
+            assert not name.startswith("踪"), f"不应产生断行碎片: {name}"
+            assert not name.endswith("。"), f"不应产生句子碎片: {name}"
+            assert "实现批量数据清洗、A" not in name, f"不应产生断行碎片: {name}"
+            assert "提升数据处理效率" not in name, f"不应产生句子碎片: {name}"
+
+    def test_no_sentence_fragments(self):
+        """测试不会产生句子碎片"""
+        from app.agents.resume_engine import ResumeEngine
+        engine = ResumeEngine()
+
+        lines = [
+            "· AI数据协助：Claude Code用于编写轻量级Python/Shell脚本，实现批量数据清洗、API接口调用、报表自动生成，提升数据处理效率。",
+            "· 市场调研：熟练使用Google Trends、Statista、similarweb等进行行业趋势与竞品数据搜集，输出市场洞察报告。",
+            "· 项目管理：熟练运用Notion、Asana进行项目拆解、任务分配、甘特图排期与进度追踪，确保多线程协作高效执行。",
+        ]
+
+        result = engine._parse_skills_lines(lines)
+        names = [s.name for s in result]
+
+        # 验证不会产生句子碎片
+        bad_patterns = [
+            "实现批量数据清洗",
+            "提升数据处理效率",
+            "输出市场洞察报告",
+            "确保多线程协作高效执行",
+            "支撑策略优化",
+        ]
+        for pattern in bad_patterns:
+            assert not any(pattern in name for name in names), f"不应包含句子碎片: {pattern}"
+
+    def test_sub_skills_extraction(self):
+        """测试子技能提取（聚合到description中）"""
+        from app.agents.resume_engine import ResumeEngine
+        engine = ResumeEngine()
+
+        lines = [
+            "· AI数据协助：Claude Code用于编写轻量级Python/Shell脚本，实现批量数据清洗、API接口调用、报表自动生成，提升数据处理效率。",
+            "· 市场调研：熟练使用Google Trends、Statista、similarweb等进行行业趋势与竞品数据搜集，输出市场洞察报告。",
+            "· 数据分析：擅长使用Tableau搭建可视化看板，结合Excel进行投放效果、用户行为、销售数据多维度分析，支撑策略优化。",
+        ]
+
+        result = engine._parse_skills_lines(lines)
+        names = [s.name for s in result]
+
+        # 验证主技能
+        assert "AI数据协助" in names
+        assert "市场调研" in names
+        assert "数据分析" in names
+
+        # 验证子技能已聚合到description中
+        for sk in result:
+            if sk.name == "AI数据协助":
+                assert "Python" in sk.description
+                assert "Shell" in sk.description
+                assert "Claude Code" in sk.description
+                assert "API" in sk.description
+            elif sk.name == "市场调研":
+                assert "Google Trends" in sk.description
+                assert "Statista" in sk.description
+            elif sk.name == "数据分析":
+                assert "Tableau" in sk.description
+                assert "Excel" in sk.description
+
+        # 验证不会产生独立的子技能SkillItem
+        for sk in result:
+            assert sk.name not in ["Python", "Shell", "Claude Code", "API", "Google Trends", "Statista", "Tableau", "Excel"]
+
+    def test_real_resume_text(self):
+        """测试真实简历文本"""
+        import asyncio
+        import asyncpg
+        from app.agents.resume_engine import ResumeEngine
+
+        async def run_test():
+            conn = await asyncpg.connect('postgresql://postgres:postgres@localhost:5432/aicareragent')
+            row = await conn.fetchrow("SELECT parsed_text FROM resume_profiles WHERE id = '02eb166b-0747-4431-957a-3a510c07319c'")
+            await conn.close()
+            parsed_text = row[0]
+
+            engine = ResumeEngine()
+            sections = engine._detect_sections(parsed_text)
+
+            # Find skills section
+            for s in sections:
+                if s['name'] == 'skills':
+                    result = engine._parse_skills_lines(s['lines'])
+                    names = [s.name for s in result]
+
+                    # 验证主技能（约6个）
+                    assert "AI数据协助" in names, "应包含 AI数据协助"
+                    assert "市场调研" in names, "应包含 市场调研"
+                    assert "项目管理" in names, "应包含 项目管理"
+                    assert "数据分析" in names, "应包含 数据分析"
+                    assert "内容制作" in names, "应包含 内容制作"
+                    assert "平台运营" in names, "应包含 平台运营"
+
+                    # 验证技能数量合理（约6-8个主技能）
+                    assert 5 <= len(result) <= 10, f"应有约6-8个主技能，实际: {len(result)}"
+
+                    # 验证子技能已聚合到description中
+                    for sk in result:
+                        if sk.name == "AI数据协助":
+                            assert "Python" in sk.description or "Claude Code" in sk.description
+                        elif sk.name == "市场调研":
+                            assert "Google Trends" in sk.description or "Statista" in sk.description
+                        elif sk.name == "项目管理":
+                            assert "Notion" in sk.description or "Asana" in sk.description
+                        elif sk.name == "数据分析":
+                            assert "Tableau" in sk.description or "Excel" in sk.description
+                        elif sk.name == "内容制作":
+                            assert "剪映" in sk.description or "PR" in sk.description
+
+                    # 验证不会产生独立的子技能SkillItem
+                    for sk in result:
+                        assert sk.name not in ["Python", "Claude Code", "Google Trends", "Statista",
+                                              "Notion", "Asana", "Tableau", "Excel", "PR", "AE",
+                                              "FCP", "PS", "剪映"], f"子技能不应作为独立SkillItem: {sk.name}"
+
+                    # 验证不会产生断行碎片（检查skill name，description可能包含原始文本）
+                    bad_name_patterns = [
+                        "实现批量数据清洗、A",
+                        "PI接口调用",
+                        "提升数据处理效率",
+                        "据搜集",
+                        "确保多线程协作高效执行",
+                        "销售数据多维度分析",
+                        "支撑策略优化",
+                        "可独立产出",
+                        "文、海报",
+                    ]
+                    for pattern in bad_name_patterns:
+                        assert not any(pattern in name for name in names), f"技能名称不应包含断行碎片: {pattern}"
+
+                    return
+
+            raise AssertionError("未找到 skills 章节")
+
+        asyncio.run(run_test())
+
+    def test_empty_input(self):
+        """测试空输入"""
+        from app.agents.resume_engine import ResumeEngine
+        engine = ResumeEngine()
+        result = engine._parse_skills_lines([])
+        assert len(result) == 0
+
+    def test_no_colon_format(self):
+        """测试无冒号格式"""
+        from app.agents.resume_engine import ResumeEngine
+        engine = ResumeEngine()
+
+        lines = [
+            "Python, Go, Java, JavaScript",
+        ]
+
+        result = engine._parse_skills_lines(lines)
+        names = [s.name.lower() for s in result]
+
+        # 无冒号格式应按逗号分割
+        assert "python" in names
+        assert "go" in names
+        assert "java" in names
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -785,8 +785,13 @@ class ResumeEngine:
     # ── 技能解析 ──────────────────────────────────────────────────
 
     def _parse_skills_lines(self, lines: List[str]) -> List[SkillItem]:
-        """解析技能行"""
+        """解析技能行（支持PDF断行合并）"""
         skills = []
+
+        # ── 步骤1：合并PDF断行 ──────────────────────────────────────
+        # 以项目符号（·、•、-）开头的行是新条目，后续行是上一行的延续
+        merged_entries = []
+        current_entry = None
         for line in lines:
             line = line.strip()
             if not line:
@@ -794,52 +799,135 @@ class ResumeEngine:
             # 跳过章节标题行
             if re.match(r'^(专业?技能(清单)?\s*[:：]?$|skills?\s*[:：]?$|technical\s*skills\s*[:：]?$)', line, re.IGNORECASE):
                 continue
-
             # 清理前缀
             cleaned = re.sub(r'^[\d\-\*•·○●\.\s]+', '', line).strip()
             if not cleaned:
                 continue
+            # 检查是否是新条目（以项目符号开头）
+            if re.match(r'^[·•\-]', line):
+                if current_entry:
+                    merged_entries.append(current_entry)
+                current_entry = cleaned
+            else:
+                # 断行延续，合并到当前条目
+                if current_entry:
+                    current_entry += cleaned
+                else:
+                    current_entry = cleaned
+        if current_entry:
+            merged_entries.append(current_entry)
 
-            # 处理逗号分隔
-            if ',' in cleaned or '，' in cleaned:
-                parts = re.split(r'[,，]', cleaned)
-                for part in parts:
-                    part = part.strip()
-                    if part:
-                        skills.append(SkillItem(
-                            name=part,
-                            description="",
-                            category=self._classify_skill(part, ""),
-                        ))
+        # ── 步骤2：提取已知工具/软件名称 ────────────────────────────
+        known_tools = [
+            "Python", "Go", "Java", "JavaScript", "TypeScript",
+            "React", "Vue", "Angular", "SQL", "MySQL", "PostgreSQL", "Redis",
+            "Docker", "Kubernetes", "K8s", "AWS", "Azure", "GCP",
+            "Git", "Linux", "Nginx", "Celery", "Django", "Flask", "FastAPI",
+            "Spring", "Node.js", "Express", "MongoDB", "Elasticsearch",
+            "Tableau", "Excel", "Google Trends", "Statista", "Similarweb",
+            "Notion", "Asana", "Adobe Premiere", "Adobe After Effects",
+            "Final Cut Pro", "Photoshop", "剪映", "Claude Code", "API",
+            "PR", "AE", "FCP", "PS", "达芬奇", "Shell",
+        ]
+
+        # ── 步骤3：解析每个条目 ──────────────────────────────────────
+        seen_names = set()
+        for entry in merged_entries:
+            # 匹配"技能名：描述"格式
+            match = re.match(r'^([^：:]{2,20})[：:](.+)$', entry)
+            if match:
+                name = match.group(1).strip()
+                desc = match.group(2).strip()
+
+                # 过滤无效技能名
+                if not name or len(name) < 2:
+                    continue
+                if name in ('技能', '专业技能', '技术技能'):
+                    continue
+                # 过滤以动作词开头的条目（可能是描述句）
+                if any(name.startswith(w) for w in self.ACTION_WORDS):
+                    continue
+                # 过滤以句号结尾的条目（可能是句子碎片）
+                if name.endswith('。') or name.endswith('.'):
+                    continue
+
+                # 去重
+                name_key = name.lower().strip()
+                if name_key in seen_names:
+                    continue
+                seen_names.add(name_key)
+
+                # 从描述中提取子技能
+                sub_skills = []
+                for tool in known_tools:
+                    tool_key = tool.lower().strip()
+                    if tool_key in seen_names:
+                        continue
+                    # 简单子字符串匹配（不区分大小写）
+                    if tool.lower() in desc.lower():
+                        sub_skills.append(tool)
+                        seen_names.add(tool_key)
+
+                # 将子技能追加到描述中
+                if sub_skills:
+                    tools_str = "、".join(sub_skills)
+                    desc = f"{desc}（掌握工具：{tools_str}）"
+
+                # 构建技能对象
+                skill = SkillItem(
+                    name=name,
+                    description=desc,
+                    level="intermediate",
+                    category=self._classify_skill(name, desc),
+                )
+                skills.append(skill)
                 continue
 
-            # 处理冒号分隔（技能名: 熟练程度）
-            colon_match = re.match(r'^([^\s：:]{2,20}?)[：:]\s*(.+)$', cleaned)
-            if colon_match:
-                name = colon_match.group(1).strip()
-                desc = colon_match.group(2).strip()
-                if name and len(name) >= 2 and not any(w in name for w in self.ACTION_WORDS):
-                    skills.append(SkillItem(name=name, description=desc,
-                                            category=self._classify_skill(name, desc)))
-                continue
-
-            # 处理 · 分隔
-            dot_match = re.match(r'^(.+?)[·]\s*(.+)$', cleaned)
-            if dot_match:
-                name = dot_match.group(1).strip()
-                desc = dot_match.group(2).strip()
-                if name and len(name) >= 2 and not any(w in name for w in self.ACTION_WORDS):
-                    skills.append(SkillItem(name=name, description=desc,
-                                            category=self._classify_skill(name, desc)))
-                continue
+            # 没有冒号的条目，检查是否是逗号分隔的技能列表
+            # 只有当整个条目都是逗号分隔的值时才分割
+            if ',' in entry or '，' in entry:
+                # 检查是否包含中文描述特征（冒号、句号、动词）
+                has_chinese_desc = any(c in entry for c in ['：', '。', '，', '、'])
+                if not has_chinese_desc:
+                    # 纯英文逗号分隔，可能是技能列表
+                    parts = re.split(r',\s*', entry)
+                    for part in parts:
+                        part = part.strip()
+                        if part and len(part) >= 2:
+                            part_key = part.lower().strip()
+                            if part_key not in seen_names:
+                                seen_names.add(part_key)
+                                skills.append(SkillItem(
+                                    name=part,
+                                    description="",
+                                    level="intermediate",
+                                    category=self._classify_skill(part, ""),
+                                ))
+                    continue
 
             # 单独的技能名
-            if len(cleaned) >= 2 and len(cleaned) <= 60:
-                if not any(w in cleaned for w in self.ACTION_WORDS):
+            if len(entry) >= 2 and len(entry) <= 60:
+                # 过滤以动作词开头的条目
+                if any(entry.startswith(w) for w in self.ACTION_WORDS):
+                    continue
+                # 过滤以句号结尾的条目
+                if entry.endswith('。') or entry.endswith('.'):
+                    continue
+                # 过滤包含完整句子特征的条目
+                if any(w in entry for w in ['实现', '提升', '输出', '确保', '支撑', '完成']):
+                    continue
+                # 过滤太短的条目（可能是断行碎片）
+                if len(entry) < 3:
+                    continue
+
+                entry_key = entry.lower().strip()
+                if entry_key not in seen_names:
+                    seen_names.add(entry_key)
                     skills.append(SkillItem(
-                        name=cleaned,
+                        name=entry,
                         description="",
-                        category=self._classify_skill(cleaned, ""),
+                        level="intermediate",
+                        category=self._classify_skill(entry, ""),
                     ))
 
         return skills[:30]
