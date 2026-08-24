@@ -45,11 +45,6 @@ class GreenhouseSource(JobSourceAdapter):
 
     async def fetch_jobs(self, keyword: str = "", location: str = "", limit: int = 20) -> List[Dict[str, Any]]:
         """从 Greenhouse API 获取岗位列表"""
-        api_key = self._get_api_key()
-        if not api_key:
-            logger.warning("[Greenhouse] 未配置 GREENHOUSE_API_KEY，返回空列表")
-            return []
-
         board = self._get_board_name()
         if not board:
             logger.warning("[Greenhouse] 未配置 GREENHOUSE_BOARD")
@@ -58,16 +53,16 @@ class GreenhouseSource(JobSourceAdapter):
         try:
             import aiohttp
             url = f"{self.base_url}/boards/{board}/jobs"
-            params = {"content": True}
+            params = {"content": "true"}
             if keyword:
                 params["search"] = keyword
             if location:
                 params["location"] = location
 
-            headers = {
-                "Authorization": f"Basic {api_key}",
-                "Accept": "application/json",
-            }
+            headers = {"Accept": "application/json"}
+            api_key = self._get_api_key()
+            if api_key:
+                headers["Authorization"] = f"Basic {api_key}"
 
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
@@ -85,11 +80,6 @@ class GreenhouseSource(JobSourceAdapter):
 
     async def fetch_job_detail(self, job_id: str) -> Optional[Dict[str, Any]]:
         """从 Greenhouse API 获取岗位详情"""
-        api_key = self._get_api_key()
-        if not api_key:
-            logger.warning("[Greenhouse] 未配置 GREENHOUSE_API_KEY")
-            return None
-
         board = self._get_board_name()
         if not board:
             logger.warning("[Greenhouse] 未配置 GREENHOUSE_BOARD")
@@ -98,10 +88,10 @@ class GreenhouseSource(JobSourceAdapter):
         try:
             import aiohttp
             url = f"{self.base_url}/boards/{board}/jobs/{job_id}"
-            headers = {
-                "Authorization": f"Basic {api_key}",
-                "Accept": "application/json",
-            }
+            headers = {"Accept": "application/json"}
+            api_key = self._get_api_key()
+            if api_key:
+                headers["Authorization"] = f"Basic {api_key}"
 
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as resp:
@@ -237,8 +227,8 @@ class GreenhouseSource(JobSourceAdapter):
             "source_job_id": str(raw_job.get("id", "")),
             "source": self.source_name,
             "source_type": self.source_type,
-            "url": url,
-            "company": company_name,
+            "source_url": url,
+            "company": company_name or "Unknown",
             "company_type": None,
             "title": title,
             "location": location_str,
@@ -259,7 +249,7 @@ class GreenhouseSource(JobSourceAdapter):
             "season": "regular",
             "industry": dept_name,
             "job_category": dept_name,
-            "posted_at": posted_at.isoformat() if posted_at else None,
+            "posted_at": posted_at if posted_at else None,
             "apply_url": url,
             "job_url": url,
             "apply_source": self.source_name,

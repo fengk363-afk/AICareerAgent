@@ -285,14 +285,7 @@ def get_adapter(source_name: str) -> Optional[JobSourceAdapter]:
 
 def list_adapters() -> List[Dict[str, str]]:
     """列出所有适配器"""
-    adapters = [
+    return [
         {"source_name": name, "source_type": adapter.source_type, "base_url": adapter.base_url}
         for name, adapter in ADAPTER_REGISTRY.items()
     ]
-    # 添加 Greenhouse
-    adapters.append({
-        "source_name": "greenhouse",
-        "source_type": "api",
-        "base_url": "https://boards-api.greenhouse.io/v1"
-    })
-    return adapters

@@ -3,7 +3,7 @@ JobSourceEngine — 统一岗位数据源系统
 支持多种招聘平台，MVP 使用 Mock 数据
 """
 import uuid
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from loguru import logger
 
@@ -816,3 +816,108 @@ class JobSourceEngine:
                 .limit(limit)
             )
             return [JobResponse.model_validate(r) for r in result.scalars().all()]
+
+    async def sync_source_jobs(
+        self,
+        source_name: str,
+        keyword: str = "",
+        location: str = "",
+        limit: int = 20
+    ) -> Dict[str, Any]:
+        """同步指定数据源的岗位数据"""
+        from app.db.models import Job
+        import uuid as uuid_module
+
+        adapter = get_adapter(source_name)
+        if not adapter:
+            logger.error(f"[JobSync] 数据源不存在: {source_name}")
+            return {"source": source_name, "added": 0, "updated": 0, "jobs": []}
+
+        logger.info(f"[JobSync] 开始同步 source={source_name}, keyword={keyword}, location={location}")
+
+        # 获取岗位列表
+        raw_jobs = await adapter.fetch_jobs(keyword, location, limit)
+        if not raw_jobs:
+            logger.info(f"[JobSync] source={source_name} 未获取到岗位")
+            return {"source": source_name, "added": 0, "updated": 0, "jobs": []}
+
+        # 标准化岗位数据
+        normalized_jobs = []
+        for raw_job in raw_jobs:
+            # 判断是否是 GreenhouseSource
+            if source_name == "greenhouse":
+                from app.agents.sources.greenhouse_source import GreenhouseSource
+                if isinstance(adapter, GreenhouseSource):
+                    normalized = adapter.normalize_greenhouse_job(raw_job)
+                else:
+                    normalized = adapter.normalize_job(raw_job)
+            else:
+                normalized = adapter.normalize_job(raw_job)
+            normalized_jobs.append(normalized)
+
+        # 保存到数据库
+        added = 0
+        updated = 0
+        saved_jobs = []
+
+        async for db in get_db():
+            for job_data in normalized_jobs:
+                source_job_id = job_data.get("source_job_id", "")
+                title = job_data.get("title", "")
+                company = job_data.get("company", "")
+
+                # 检查是否已存在
+                existing = None
+                if source_job_id:
+                    existing = await db.execute(
+                        select(Job).where(Job.source_job_id == source_job_id).limit(1)
+                    )
+                    existing = existing.scalar_one_or_none()
+
+                if not existing:
+                    # 按 source + title + company 判断
+                    existing = await db.execute(
+                        select(Job).where(
+                            Job.source == job_data.get("source", ""),
+                            Job.title == title,
+                            Job.company == company,
+                        ).limit(1)
+                    )
+                    existing = existing.scalar_one_or_none()
+
+                if existing:
+                    # 更新
+                    for key, value in job_data.items():
+                        if hasattr(existing, key) and value is not None:
+                            setattr(existing, key, value)
+                    existing.updated_time = datetime.utcnow()
+                    updated += 1
+                    logger.info(f"[JobSync] updated=1 title={title}")
+                    saved_jobs.append(JobResponse.model_validate(existing))
+                else:
+                    # 新增
+                    job_id = str(uuid_module.uuid4())
+                    job_data["id"] = job_id
+                    job_data["created_at"] = datetime.utcnow()
+                    job_data["updated_time"] = datetime.utcnow()
+                    try:
+                        job = Job(**job_data)
+                    except Exception as e:
+                        logger.error(f"[JobSync] Job 创建失败: {e}")
+                        logger.error(f"[JobSync] job_data: {job_data}")
+                        continue
+                    db.add(job)
+                    added += 1
+                    logger.info(f"[JobSync] added=1 title={title}")
+                    saved_jobs.append(JobResponse.model_validate(job))
+
+            await db.commit()
+
+        logger.info(f"[JobSync] source={source_name} added={added} updated={updated}")
+
+        return {
+            "source": source_name,
+            "added": added,
+            "updated": updated,
+            "jobs": saved_jobs,
+        }
