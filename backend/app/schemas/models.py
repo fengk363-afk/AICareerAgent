@@ -83,6 +83,7 @@ class ResumeProfileResponse(ResumeProfileCreate):
     created_at: datetime
     updated_at: datetime
     strength_analysis: Optional[list] = None
+    file_path: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -24,7 +24,7 @@
       <div v-if="uploadStatus" class="upload-status">{{ uploadStatus }}</div>
     </div>
 
-    <!-- Profile List -->
+    <!-- Profile List (最新解析简历) -->
     <div v-if="profiles.length === 0 && !loading" class="empty-state">
       <div class="empty-icon">📋</div>
       <p>暂无简历，请上传 PDF 文件</p>
@@ -32,239 +32,378 @@
 
     <div v-if="loading" class="loading">加载中...</div>
 
-    <!-- Profile Cards -->
-    <div v-for="profile in profiles" :key="profile.id" class="profile-card">
-      <!-- Card Header -->
-      <div class="profile-card-header">
-        <div>
-          <h3>{{ profile.original_filename || '简历画像' }}</h3>
-          <span class="filename">{{ formatDate(profile.created_at) }}</span>
-        </div>
-        <div class="profile-actions">
-          <button
-            v-if="editingId !== profile.id"
-            class="edit-btn"
-            @click="startEdit(profile)"
-            title="编辑"
-          >✏️</button>
-          <button class="gen-btn" @click="generateRecommendations(profile.id)" :disabled="generatingIds.has(profile.id)">
-            {{ generatingIds.has(profile.id) ? '生成中...' : '🎯 生成推荐' }}
-          </button>
-          <button class="del-btn" @click="deleteProfile(profile.id)">🗑</button>
-        </div>
-      </div>
-
-      <!-- Edit Toolbar -->
-      <div v-if="editingId === profile.id" class="edit-toolbar">
-        <span class="edit-hint">编辑模式 — 可修改、删除或新增各项内容</span>
-        <div class="edit-toolbar-actions">
-          <button class="save-btn" @click="saveProfile(profile)" :disabled="savingIds.has(profile.id)">
-            {{ savingIds.has(profile.id) ? '保存中...' : '💾 保存' }}
-          </button>
-          <button class="cancel-btn" @click="cancelEdit(profile)">取消</button>
-        </div>
-      </div>
-
-      <div class="profile-card-body">
-        <!-- 个人摘要 -->
-        <div class="section" v-if="profile.summary !== undefined">
-          <div class="section-title">个人摘要</div>
-          <template v-if="editingId === profile.id">
-            <textarea
-              class="edit-textarea"
-              v-model="editData[profile.id].summary"
-              rows="3"
-            ></textarea>
-          </template>
-          <p v-else class="summary-text">{{ profile.summary }}</p>
-        </div>
-
-        <!-- 教育背景 -->
-        <div class="section">
-          <div class="section-title">
-            教育背景
-            <button v-if="editingId === profile.id" class="add-btn" @click="addEducation(profile)">+ 新增</button>
+    <!-- 最新解析简历（完整展示） -->
+    <template v-if="profiles.length > 0">
+      <div class="section-label">最新解析简历</div>
+      <!-- Profile Cards (仅展示第一份) -->
+      <div class="profile-card">
+        <div class="profile-card-header">
+          <div>
+            <h3>{{ profiles[0].original_filename || '简历画像' }}</h3>
+            <span class="filename">{{ formatDate(profiles[0].created_at) }}</span>
           </div>
-          <div v-if="!editData[profile.id]?.education?.length && (!profile.education || !profile.education.length)" class="empty-hint">暂无教育经历</div>
-          <div v-for="(edu, idx) in (editData[profile.id]?.education || profile.education || [])" :key="idx" class="edu-item">
-            <template v-if="editingId === profile.id">
-              <div class="edit-row">
-                <input class="edit-input" v-model="edu.school" placeholder="学校" />
-                <input class="edit-input" v-model="edu.degree" placeholder="学历" />
-                <input class="edit-input" v-model="edu.major" placeholder="专业" />
-                <button class="remove-btn" @click="removeEducation(profile, idx)">✕</button>
-              </div>
-            </template>
-            <template v-else>
-              <div class="edu-school">{{ edu.school }}</div>
-              <div class="edu-detail" v-if="edu.degree || edu.major">
-                {{ [edu.degree, edu.major].filter(Boolean).join(' · ') }}
-              </div>
-            </template>
+          <div class="profile-actions">
+            <button
+              v-if="editingId !== profiles[0].id"
+              class="edit-btn"
+              @click="startEdit(profiles[0])"
+              title="编辑"
+            >✏️</button>
+            <button class="gen-btn" @click="generateRecommendations(profiles[0].id)" :disabled="generatingIds.has(profiles[0].id)">
+              {{ generatingIds.has(profiles[0].id) ? '生成中...' : '🎯 生成推荐' }}
+            </button>
+            <button class="del-btn" @click="deleteProfile(profiles[0].id)">🗑</button>
           </div>
         </div>
 
-        <!-- 实习经历 -->
-        <div class="section">
-          <div class="section-title">
-            实习经历
-            <button v-if="editingId === profile.id" class="add-btn" @click="addExperience(profile)">+ 新增</button>
+        <!-- Edit Toolbar -->
+        <div v-if="editingId === profiles[0].id" class="edit-toolbar">
+          <span class="edit-hint">编辑模式 — 可修改、删除或新增各项内容</span>
+          <div class="edit-toolbar-actions">
+            <button class="save-btn" @click="saveProfile(profiles[0])" :disabled="savingIds.has(profiles[0].id)">
+              {{ savingIds.has(profiles[0].id) ? '保存中...' : '💾 保存' }}
+            </button>
+            <button class="cancel-btn" @click="cancelEdit(profiles[0])">取消</button>
           </div>
-          <div v-if="!editData[profile.id]?.experience?.length && (!profile.experience || !profile.experience.length)" class="empty-hint">暂无实习经历</div>
-          <div v-for="(exp, idx) in (editData[profile.id]?.experience || profile.experience || [])" :key="idx" class="exp-item">
-            <template v-if="editingId === profile.id">
-              <div class="edit-row">
-                <input class="edit-input" v-model="exp.company" placeholder="公司" />
-                <input class="edit-input" v-model="exp.position" placeholder="职位" />
-              </div>
-              <div class="edit-row">
-                <input class="edit-input edit-input-sm" v-model="exp.start_date" placeholder="开始日期（如 2023.06）" />
-                <input class="edit-input edit-input-sm" v-model="exp.end_date" placeholder="结束日期（如 2023.12 或 至今）" />
-                <button class="remove-btn" @click="removeExperience(profile, idx)">✕</button>
-              </div>
-              <textarea class="edit-textarea" v-model="exp.description" placeholder="工作内容描述" rows="3"></textarea>
+        </div>
+
+        <div class="profile-card-body">
+          <!-- 个人摘要 -->
+          <div class="section" v-if="profiles[0].summary !== undefined">
+            <div class="section-title">个人摘要</div>
+            <template v-if="editingId === profiles[0].id">
+              <textarea class="edit-textarea" v-model="editData[profiles[0].id].summary" rows="3"></textarea>
             </template>
-            <template v-else>
-              <div class="exp-header">
-                <div>
-                  <span class="exp-company">{{ exp.company }}</span>
-                  <span class="exp-position" v-if="exp.position">{{ exp.position }}</span>
+            <p v-else class="summary-text">{{ profiles[0].summary }}</p>
+          </div>
+
+          <!-- 教育背景 -->
+          <div class="section">
+            <div class="section-title">
+              教育背景
+              <button v-if="editingId === profiles[0].id" class="add-btn" @click="addEducation(profiles[0])">+ 新增</button>
+            </div>
+            <div v-if="!editData[profiles[0].id]?.education?.length && (!profiles[0].education || !profiles[0].education.length)" class="empty-hint">暂无教育经历</div>
+            <div v-for="(edu, idx) in (editData[profiles[0].id]?.education || profiles[0].education || [])" :key="idx" class="edu-item">
+              <template v-if="editingId === profiles[0].id">
+                <div class="edit-row">
+                  <input class="edit-input" v-model="edu.school" placeholder="学校" />
+                  <input class="edit-input" v-model="edu.degree" placeholder="学历" />
+                  <input class="edit-input" v-model="edu.major" placeholder="专业" />
+                  <button class="remove-btn" @click="removeEducation(profiles[0], idx)">✕</button>
                 </div>
-                <span class="exp-time" v-if="exp.start_date">
-                  {{ formatExpDate(exp.start_date) }}
-                  <span v-if="exp.end_date === '至今' || exp.end_date === 'current'"> — 至今</span>
-                  <span v-else-if="exp.end_date"> — {{ formatExpDate(exp.end_date) }}</span>
-                </span>
-              </div>
-              <div class="exp-desc" v-if="exp.description">{{ exp.description }}</div>
-            </template>
-          </div>
-        </div>
-
-        <!-- 项目经历 -->
-        <div class="section">
-          <div class="section-title">
-            项目经历
-            <button v-if="editingId === profile.id" class="add-btn" @click="addProject(profile)">+ 新增</button>
-          </div>
-          <div v-if="!editData[profile.id]?.project_experience?.length && (!profile.project_experience || !profile.project_experience.length)" class="empty-hint">暂无项目经历</div>
-          <div v-for="(proj, idx) in (editData[profile.id]?.project_experience || profile.project_experience || [])" :key="idx" class="proj-item">
-            <template v-if="editingId === profile.id">
-              <div class="edit-row">
-                <input class="edit-input" v-model="proj.project_name" placeholder="项目名称" />
-                <input class="edit-input" v-model="proj.role" placeholder="角色" />
-              </div>
-              <div class="edit-row">
-                <input class="edit-input edit-input-sm" v-model="proj.date" placeholder="时间（如 2023.03-2023.09）" />
-                <button class="remove-btn" @click="removeProject(profile, idx)">✕</button>
-              </div>
-              <textarea class="edit-textarea" v-model="proj.description" placeholder="项目描述" rows="3"></textarea>
-              <input class="edit-input" v-model="proj.technologies" placeholder="技术栈（用逗号或顿号分隔）" />
-            </template>
-            <template v-else>
-              <div class="proj-header">
-                <div>
-                  <span class="proj-name">{{ proj.project_name }}</span>
-                  <span class="proj-role" v-if="proj.role">{{ proj.role }}</span>
+              </template>
+              <template v-else>
+                <div class="edu-school">{{ edu.school }}</div>
+                <div class="edu-detail" v-if="edu.degree || edu.major">
+                  {{ [edu.degree, edu.major].filter(Boolean).join(' · ') }}
                 </div>
-                <span class="proj-duration" v-if="proj.date">{{ formatExpDate(proj.date) }}</span>
-                <span class="proj-duration date-pending" v-else>至今</span>
-              </div>
-              <div class="proj-desc" v-if="proj.description">{{ proj.description }}</div>
-              <div class="proj-tech" v-if="proj.technologies">
-                <span
-                  v-for="tech in splitByDelimiter(proj.technologies)"
-                  :key="tech"
-                  class="tech-tag"
-                >{{ tech }}</span>
-              </div>
-            </template>
-          </div>
-        </div>
-
-        <!-- 专业技能 -->
-        <div class="section">
-          <div class="section-title">
-            专业技能
-            <button v-if="editingId === profile.id" class="add-btn" @click="addSkill(profile)">+ 新增</button>
-          </div>
-          <div v-if="!editData[profile.id]?.skills?.length && (!profile.skills || !profile.skills.length)" class="empty-hint">暂无技能</div>
-          <div v-for="(skill, idx) in (editData[profile.id]?.skills || profile.skills || [])" :key="idx" class="skill-row">
-            <template v-if="editingId === profile.id">
-              <div class="edit-row edit-row-skill">
-                <input class="edit-input" v-model="skill.name" placeholder="技能名称" />
-                <select class="edit-select" v-model="skill.category">
-                  <option value="technical_skills">技术</option>
-                  <option value="business_skills">商业</option>
-                  <option value="tools_skills">工具</option>
-                  <option value="content_skills">内容</option>
-                </select>
-                <input class="edit-input" v-model="skill.description" placeholder="描述（可选）" />
-                <button class="remove-btn" @click="removeSkill(profile, idx)">✕</button>
-              </div>
-            </template>
-            <template v-else>
-              <span class="skill-name">{{ skill.name }}</span>
-              <span v-if="skill.category" class="skill-category">{{ formatCategory(skill.category) }}</span>
-              <span class="skill-desc" v-if="skill.description">{{ skill.description }}</span>
-            </template>
-          </div>
-        </div>
-
-        <!-- 能力优势（只读） -->
-        <div class="section" v-if="profile.strength_analysis && profile.strength_analysis.length > 0">
-          <div class="section-title">能力优势</div>
-          <div class="strengths-list">
-            <div v-for="(st, idx) in profile.strength_analysis" :key="idx" class="strength-item">
-              <span class="strength-score">{{ st.score }}</span>
-              <span class="strength-desc">{{ st.desc }}</span>
-              <span class="strength-type">{{ formatStrengthType(st.type) }}</span>
+              </template>
             </div>
           </div>
-        </div>
 
-        <!-- 推荐岗位（只读） -->
-        <div class="section" v-if="profile.recommendations && profile.recommendations.length > 0">
-          <div class="section-title">推荐岗位</div>
-          <div class="rec-list">
-            <div v-for="(rec, idx) in profile.recommendations" :key="idx" class="rec-item">
-              <div class="rec-header">
-                <div class="rec-job-info">
-                  <span class="rec-company">{{ rec.job?.company || '未知公司' }}</span>
-                  <span class="rec-title">{{ rec.job?.title || '未知岗位' }}</span>
+          <!-- 实习经历 -->
+          <div class="section">
+            <div class="section-title">
+              实习经历
+              <button v-if="editingId === profiles[0].id" class="add-btn" @click="addExperience(profiles[0])">+ 新增</button>
+            </div>
+            <div v-if="!editData[profiles[0].id]?.experience?.length && (!profiles[0].experience || !profiles[0].experience.length)" class="empty-hint">暂无实习经历</div>
+            <div v-for="(exp, idx) in (editData[profiles[0].id]?.experience || profiles[0].experience || [])" :key="idx" class="exp-item">
+              <template v-if="editingId === profiles[0].id">
+                <div class="edit-row">
+                  <input class="edit-input" v-model="exp.company" placeholder="公司" />
+                  <input class="edit-input" v-model="exp.position" placeholder="职位" />
                 </div>
-                <div class="rec-scores">
-                  <span class="rec-score-item" :class="{ 'rec-high': rec.overall_score >= 70 }">
-                    匹配 {{ rec.overall_score }}
+                <div class="edit-row">
+                  <input class="edit-input edit-input-sm" v-model="exp.start_date" placeholder="开始日期（如 2023.06）" />
+                  <input class="edit-input edit-input-sm" v-model="exp.end_date" placeholder="结束日期（如 2023.12 或 至今）" />
+                  <button class="remove-btn" @click="removeExperience(profiles[0], idx)">✕</button>
+                </div>
+                <textarea class="edit-textarea" v-model="exp.description" placeholder="工作内容描述" rows="3"></textarea>
+              </template>
+              <template v-else>
+                <div class="exp-header">
+                  <div>
+                    <span class="exp-company">{{ exp.company }}</span>
+                    <span class="exp-position" v-if="exp.position">{{ exp.position }}</span>
+                  </div>
+                  <span class="exp-time" v-if="exp.start_date">
+                    {{ formatExpDate(exp.start_date) }}
+                    <span v-if="exp.end_date === '至今' || exp.end_date === 'current'"> — 至今</span>
+                    <span v-else-if="exp.end_date"> — {{ formatExpDate(exp.end_date) }}</span>
                   </span>
-                  <span v-if="rec.should_recommend" class="rec-badge">推荐</span>
                 </div>
+                <div class="exp-desc" v-if="exp.description">{{ exp.description }}</div>
+              </template>
+            </div>
+          </div>
+
+          <!-- 项目经历 -->
+          <div class="section">
+            <div class="section-title">
+              项目经历
+              <button v-if="editingId === profiles[0].id" class="add-btn" @click="addProject(profiles[0])">+ 新增</button>
+            </div>
+            <div v-if="!editData[profiles[0].id]?.project_experience?.length && (!profiles[0].project_experience || !profiles[0].project_experience.length)" class="empty-hint">暂无项目经历</div>
+            <div v-for="(proj, idx) in (editData[profiles[0].id]?.project_experience || profiles[0].project_experience || [])" :key="idx" class="proj-item">
+              <template v-if="editingId === profiles[0].id">
+                <div class="edit-row">
+                  <input class="edit-input" v-model="proj.project_name" placeholder="项目名称" />
+                  <input class="edit-input" v-model="proj.role" placeholder="角色" />
+                </div>
+                <div class="edit-row">
+                  <input class="edit-input edit-input-sm" v-model="proj.date" placeholder="时间（如 2023.03-2023.09）" />
+                  <button class="remove-btn" @click="removeProject(profiles[0], idx)">✕</button>
+                </div>
+                <textarea class="edit-textarea" v-model="proj.description" placeholder="项目描述" rows="3"></textarea>
+                <input class="edit-input" v-model="proj.technologies" placeholder="技术栈（用逗号或顿号分隔）" />
+              </template>
+              <template v-else>
+                <div class="proj-header">
+                  <div>
+                    <span class="proj-name">{{ proj.project_name }}</span>
+                    <span class="proj-role" v-if="proj.role">{{ proj.role }}</span>
+                  </div>
+                  <span class="proj-duration" v-if="proj.date">{{ formatExpDate(proj.date) }}</span>
+                  <span class="proj-duration date-pending" v-else>至今</span>
+                </div>
+                <div class="proj-desc" v-if="proj.description">{{ proj.description }}</div>
+                <div class="proj-tech" v-if="proj.technologies">
+                  <span v-for="tech in splitByDelimiter(proj.technologies)" :key="tech" class="tech-tag">{{ tech }}</span>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- 专业技能 -->
+          <div class="section">
+            <div class="section-title">
+              专业技能
+              <button v-if="editingId === profiles[0].id" class="add-btn" @click="addSkill(profiles[0])">+ 新增</button>
+            </div>
+            <div v-if="!editData[profiles[0].id]?.skills?.length && (!profiles[0].skills || !profiles[0].skills.length)" class="empty-hint">暂无技能</div>
+            <div v-for="(skill, idx) in (editData[profiles[0].id]?.skills || profiles[0].skills || [])" :key="idx" class="skill-row">
+              <template v-if="editingId === profiles[0].id">
+                <div class="edit-row edit-row-skill">
+                  <input class="edit-input" v-model="skill.name" placeholder="技能名称" />
+                  <select class="edit-select" v-model="skill.category">
+                    <option value="technical_skills">技术</option>
+                    <option value="business_skills">商业</option>
+                    <option value="tools_skills">工具</option>
+                    <option value="content_skills">内容</option>
+                  </select>
+                  <input class="edit-input" v-model="skill.description" placeholder="描述（可选）" />
+                  <button class="remove-btn" @click="removeSkill(profiles[0], idx)">✕</button>
+                </div>
+              </template>
+              <template v-else>
+                <span class="skill-name">{{ skill.name }}</span>
+                <span v-if="skill.category" class="skill-category">{{ formatCategory(skill.category) }}</span>
+                <span class="skill-desc" v-if="skill.description">{{ skill.description }}</span>
+              </template>
+            </div>
+          </div>
+
+          <!-- 能力优势（只读） -->
+          <div class="section" v-if="profiles[0].strength_analysis && profiles[0].strength_analysis.length > 0">
+            <div class="section-title">能力优势</div>
+            <div class="strengths-list">
+              <div v-for="(st, idx) in profiles[0].strength_analysis" :key="idx" class="strength-item">
+                <span class="strength-score">{{ st.score }}</span>
+                <span class="strength-desc">{{ st.desc }}</span>
+                <span class="strength-type">{{ formatStrengthType(st.type) }}</span>
               </div>
-              <div class="rec-meta" v-if="rec.job?.location || rec.job?.salary_range">
-                <span v-if="rec.job?.location">{{ rec.job.location }}</span>
-                <span v-if="rec.job?.salary_range">· {{ rec.job.salary_range?.min }}-{{ rec.job.salary_range?.max }}K</span>
-              </div>
-              <div class="rec-reason" v-if="rec.recommendation_reason">{{ rec.recommendation_reason }}</div>
-              <div class="rec-tags" v-if="rec.advantages?.length">
-                <span
-                  v-for="(adv, i) in rec.advantages.slice(0, 3)"
-                  :key="i"
-                  class="rec-tag rec-tag-pos"
-                >{{ adv }}</span>
-                <span
-                  v-for="(risk, i) in (rec.risks || []).slice(0, 1)"
-                  :key="'r'+i"
-                  class="rec-tag rec-tag-neg"
-                >{{ risk }}</span>
-              </div>
-              <div class="rec-actions">
-                <router-link :to="`/jobs/${rec.job?.id}`" class="rec-link" v-if="rec.job?.id">查看详情</router-link>
+            </div>
+          </div>
+
+          <!-- 推荐岗位（只读） -->
+          <div class="section" v-if="profiles[0].recommendations && profiles[0].recommendations.length > 0">
+            <div class="section-title">推荐岗位</div>
+            <div class="rec-list">
+              <div v-for="(rec, idx) in profiles[0].recommendations" :key="idx" class="rec-item">
+                <div class="rec-header">
+                  <div class="rec-job-info">
+                    <span class="rec-company">{{ rec.job?.company || '未知公司' }}</span>
+                    <span class="rec-title">{{ rec.job?.title || '未知岗位' }}</span>
+                  </div>
+                  <div class="rec-scores">
+                    <span class="rec-score-item" :class="{ 'rec-high': rec.overall_score >= 70 }">
+                      匹配 {{ rec.overall_score }}
+                    </span>
+                    <span v-if="rec.should_recommend" class="rec-badge">推荐</span>
+                  </div>
+                </div>
+                <div class="rec-meta" v-if="rec.job?.location || rec.job?.salary_range">
+                  <span v-if="rec.job?.location">{{ rec.job.location }}</span>
+                  <span v-if="rec.job?.salary_range">· {{ rec.job.salary_range?.min }}-{{ rec.job.salary_range?.max }}K</span>
+                </div>
+                <div class="rec-reason" v-if="rec.recommendation_reason">{{ rec.recommendation_reason }}</div>
+                <div class="rec-tags" v-if="rec.advantages?.length">
+                  <span v-for="(adv, i) in rec.advantages.slice(0, 3)" :key="i" class="rec-tag rec-tag-pos">{{ adv }}</span>
+                  <span v-for="(risk, i) in (rec.risks || []).slice(0, 1)" :key="'r'+i" class="rec-tag rec-tag-neg">{{ risk }}</span>
+                </div>
+                <div class="rec-actions">
+                  <router-link :to="`/jobs/${rec.job?.id}`" class="rec-link" v-if="rec.job?.id">查看详情</router-link>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+
+      <!-- 历史简历（方形卡片网格） -->
+      <div v-if="profiles.length > 1" class="history-section">
+        <div class="history-header">
+          <div class="history-header-left">
+            <span class="history-title">历史简历</span>
+            <span class="history-count">{{ profiles.length - 1 }} 份</span>
+          </div>
+          <button class="clear-all-btn" :disabled="clearingAll" @click="clearAllHistory">
+            {{ clearingAll ? '清空中...' : '🗑 一键清空历史简历' }}
+          </button>
+        </div>
+        <div class="history-grid">
+          <div
+            v-for="profile in profiles.slice(1)"
+            :key="profile.id"
+            class="history-card"
+            :class="{ 'history-card--expanded': expandedProfileId === profile.id }"
+            @click="toggleExpand(profile.id)"
+          >
+            <!-- 折叠态：图标 + 文件名 + 日期 + 删除 -->
+            <div v-if="expandedProfileId !== profile.id" class="history-card-collapsed">
+              <div class="history-card-icon">📄</div>
+              <div class="history-card-meta">
+                <span class="history-card-name">{{ profile.original_filename }}</span>
+                <span class="history-card-date">{{ formatDate(profile.created_at) }}</span>
+              </div>
+              <button
+                class="history-card-delete"
+                @click.stop="deleteProfile(profile.id)"
+                title="删除"
+              >🗑</button>
+            </div>
+
+            <!-- 展开态：完整简历内容 -->
+            <div v-else class="history-card-expanded">
+              <div class="history-card-expanded-header">
+                <span class="history-card-name">{{ profile.original_filename }}</span>
+                <span class="history-card-date">{{ formatDate(profile.created_at) }}</span>
+                <button class="history-card-close" @click.stop="toggleExpand(profile.id)">✕</button>
+              </div>
+              <div class="history-card-expanded-body">
+                <!-- 个人摘要 -->
+                <div class="section" v-if="profile.summary !== undefined">
+                  <div class="section-title">个人摘要</div>
+                  <p class="summary-text">{{ profile.summary }}</p>
+                </div>
+                <!-- 教育背景 -->
+                <div class="section">
+                  <div class="section-title">教育背景</div>
+                  <div v-if="!profile.education?.length" class="empty-hint">暂无教育经历</div>
+                  <div v-for="(edu, idx) in profile.education" :key="idx" class="edu-item">
+                    <div class="edu-school">{{ edu.school }}</div>
+                    <div class="edu-detail" v-if="edu.degree || edu.major">{{ [edu.degree, edu.major].filter(Boolean).join(' · ') }}</div>
+                  </div>
+                </div>
+                <!-- 实习经历 -->
+                <div class="section">
+                  <div class="section-title">实习经历</div>
+                  <div v-if="!profile.experience?.length" class="empty-hint">暂无实习经历</div>
+                  <div v-for="(exp, idx) in profile.experience" :key="idx" class="exp-item">
+                    <div class="exp-header">
+                      <div>
+                        <span class="exp-company">{{ exp.company }}</span>
+                        <span class="exp-position" v-if="exp.position">{{ exp.position }}</span>
+                      </div>
+                      <span class="exp-time" v-if="exp.start_date">
+                        {{ formatExpDate(exp.start_date) }}
+                        <span v-if="exp.end_date === '至今' || exp.end_date === 'current'"> — 至今</span>
+                        <span v-else-if="exp.end_date"> — {{ formatExpDate(exp.end_date) }}</span>
+                      </span>
+                    </div>
+                    <div class="exp-desc" v-if="exp.description">{{ exp.description }}</div>
+                  </div>
+                </div>
+                <!-- 项目经历 -->
+                <div class="section">
+                  <div class="section-title">项目经历</div>
+                  <div v-if="!profile.project_experience?.length" class="empty-hint">暂无项目经历</div>
+                  <div v-for="(proj, idx) in profile.project_experience" :key="idx" class="proj-item">
+                    <div class="proj-header">
+                      <div>
+                        <span class="proj-name">{{ proj.project_name }}</span>
+                        <span class="proj-role" v-if="proj.role">{{ proj.role }}</span>
+                      </div>
+                      <span class="proj-duration" v-if="proj.date">{{ formatExpDate(proj.date) }}</span>
+                      <span class="proj-duration date-pending" v-else>至今</span>
+                    </div>
+                    <div class="proj-desc" v-if="proj.description">{{ proj.description }}</div>
+                    <div class="proj-tech" v-if="proj.technologies">
+                      <span v-for="tech in splitByDelimiter(proj.technologies)" :key="tech" class="tech-tag">{{ tech }}</span>
+                    </div>
+                  </div>
+                </div>
+                <!-- 专业技能 -->
+                <div class="section">
+                  <div class="section-title">专业技能</div>
+                  <div v-if="!profile.skills?.length" class="empty-hint">暂无技能</div>
+                  <div v-for="(skill, idx) in profile.skills" :key="idx" class="skill-row">
+                    <span class="skill-name">{{ skill.name }}</span>
+                    <span v-if="skill.category" class="skill-category">{{ formatCategory(skill.category) }}</span>
+                    <span class="skill-desc" v-if="skill.description">{{ skill.description }}</span>
+                  </div>
+                </div>
+                <!-- 能力优势 -->
+                <div class="section" v-if="profile.strength_analysis && profile.strength_analysis.length > 0">
+                  <div class="section-title">能力优势</div>
+                  <div class="strengths-list">
+                    <div v-for="(st, idx) in profile.strength_analysis" :key="idx" class="strength-item">
+                      <span class="strength-score">{{ st.score }}</span>
+                      <span class="strength-desc">{{ st.desc }}</span>
+                      <span class="strength-type">{{ formatStrengthType(st.type) }}</span>
+                    </div>
+                  </div>
+                </div>
+                <!-- 推荐岗位 -->
+                <div class="section" v-if="profile.recommendations && profile.recommendations.length > 0">
+                  <div class="section-title">推荐岗位</div>
+                  <div class="rec-list">
+                    <div v-for="(rec, idx) in profile.recommendations" :key="idx" class="rec-item">
+                      <div class="rec-header">
+                        <div class="rec-job-info">
+                          <span class="rec-company">{{ rec.job?.company || '未知公司' }}</span>
+                          <span class="rec-title">{{ rec.job?.title || '未知岗位' }}</span>
+                        </div>
+                        <div class="rec-scores">
+                          <span class="rec-score-item" :class="{ 'rec-high': rec.overall_score >= 70 }">
+                            匹配 {{ rec.overall_score }}
+                          </span>
+                          <span v-if="rec.should_recommend" class="rec-badge">推荐</span>
+                        </div>
+                      </div>
+                      <div class="rec-meta" v-if="rec.job?.location || rec.job?.salary_range">
+                        <span v-if="rec.job?.location">{{ rec.job.location }}</span>
+                        <span v-if="rec.job?.salary_range">· {{ rec.job.salary_range?.min }}-{{ rec.job.salary_range?.max }}K</span>
+                      </div>
+                      <div class="rec-reason" v-if="rec.recommendation_reason">{{ rec.recommendation_reason }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="history-card-expanded-footer">
+                <button class="gen-btn" @click.stop="generateRecommendations(profile.id)" :disabled="generatingIds.has(profile.id)">
+                  {{ generatingIds.has(profile.id) ? '生成中...' : '🎯 生成推荐' }}
+                </button>
+                <button class="del-btn" @click.stop="deleteProfile(profile.id)">🗑 删除</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
   </div>
 </template>
 
@@ -282,7 +421,9 @@ export default {
       generatingIds: new Set(),
       editingId: null,
       savingIds: new Set(),
-      editData: {}
+      editData: {},
+      clearingAll: false,
+      expandedProfileId: null
     }
   },
   async created() {
@@ -372,7 +513,8 @@ export default {
       if (!confirm('确定删除该简历画像？')) return
       try {
         await resumeApi.deleteProfile(profileId)
-        this.profiles = this.profiles.filter(p => p.id !== profileId)
+        // 重新加载，不依赖本地数组过滤
+        await this.loadProfiles()
         if (this.editingId === profileId) {
           this.editingId = null
           delete this.editData[profileId]
@@ -380,6 +522,43 @@ export default {
       } catch (e) {
         console.error('删除失败', e)
       }
+    },
+
+    async clearAllHistory() {
+      console.log('clearAllHistory clicked, profiles.length:', this.profiles.length)
+      // 只清空历史简历（排除最新一份）
+      const historyProfiles = this.profiles.slice(1)
+      console.log('historyProfiles:', historyProfiles.map(p => ({ id: p.id, name: p.original_filename })))
+      if (historyProfiles.length === 0) {
+        this.uploadStatus = '⚠️ 没有历史简历可清空'
+        return
+      }
+      if (!confirm(`确定清空 ${historyProfiles.length} 份历史简历？此操作不可恢复。`)) return
+      this.clearingAll = true
+      const failed = []
+      for (const profile of historyProfiles) {
+        console.log('deleting profile:', profile.id)
+        try {
+          await resumeApi.deleteProfile(profile.id)
+          console.log('deleted profile:', profile.id)
+        } catch (e) {
+          console.error(`删除 ${profile.id} 失败`, e)
+          failed.push(profile.original_filename)
+        }
+      }
+      // 重新加载，不依赖本地数组过滤
+      await this.loadProfiles()
+      this.expandedProfileId = null
+      this.clearingAll = false
+      if (failed.length > 0) {
+        alert(`以下简历删除失败：\n${failed.join('\n')}`)
+      } else {
+        this.uploadStatus = '✅ 历史简历已全部清空'
+      }
+    },
+
+    toggleExpand(profileId) {
+      this.expandedProfileId = this.expandedProfileId === profileId ? null : profileId
     },
 
     // ---- Edit ----
@@ -1065,6 +1244,215 @@ export default {
   font-size: 14px;
   color: var(--text-tertiary);
   padding: 8px 0;
+}
+
+/* Section Label */
+.section-label {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 14px;
+  color: var(--text-primary);
+}
+
+/* History Section */
+.history-section {
+  background: var(--bg-white);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 28px;
+  box-shadow: var(--shadow);
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.history-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.history-count {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  background: var(--bg);
+  padding: 2px 10px;
+  border-radius: 980px;
+}
+
+/* History Grid (方形卡片) */
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.history-card {
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.history-card:hover {
+  border-color: var(--blue);
+  box-shadow: 0 2px 8px rgba(0, 113, 227, 0.12);
+}
+
+.history-card--expanded {
+  grid-column: 1 / -1;
+  border-color: var(--blue);
+  background: var(--bg-white);
+}
+
+/* 折叠态 */
+.history-card-collapsed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.history-card-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--blue-light);
+  border-radius: 8px;
+}
+
+.history-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.history-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-card-date {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.history-card-delete {
+  padding: 4px 8px;
+  font-size: 13px;
+  background: transparent;
+  color: var(--text-tertiary);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.history-card-delete:hover {
+  background: #ffeaea;
+  color: var(--red);
+}
+
+/* 展开态 */
+.history-card-expanded {
+  padding: 0;
+}
+
+.history-card-expanded-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--blue-light);
+  border-bottom: 1px solid var(--border);
+}
+
+.history-card-expanded-header .history-card-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.history-card-expanded-header .history-card-date {
+  font-size: 12px;
+}
+
+.history-card-close {
+  margin-left: auto;
+  padding: 4px 8px;
+  font-size: 13px;
+  background: transparent;
+  color: var(--text-tertiary);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.history-card-close:hover {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+.history-card-expanded-body {
+  padding: 18px;
+}
+
+.history-card-expanded-footer {
+  display: flex;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.clear-all-btn {
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  color: var(--red);
+  border: 1px solid var(--red);
+  border-radius: 980px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.clear-all-btn:hover:not(:disabled) {
+  background: #ffeaea;
+}
+
+.clear-all-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* ---- Edit mode controls ---- */

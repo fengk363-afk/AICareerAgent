@@ -1,14 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.agents.engine import engine
 from app.schemas.models import ApplicationResponse
+from app.db.database import get_db
+from app.db.models import ResumeProfile
 
 router = APIRouter()
 
 
 @router.get("/dashboard/{user_id}", response_model=dict)
-async def get_dashboard(user_id: int, db: AsyncSession = Depends(__import__('app.db.database', fromlist=['get_db']).get_db)):
+async def get_dashboard(user_id: int, db: AsyncSession = Depends(get_db)):
     """获取用户投递总览"""
     applications = await engine.get_applications(user_id)
 
@@ -21,6 +24,13 @@ async def get_dashboard(user_id: int, db: AsyncSession = Depends(__import__('app
         key = app.status.value if hasattr(app.status, "value") else str(app.status)
         if key in stats:
             stats[key] += 1
+
+    # 统计当前用户的简历数量
+    resume_result = await db.execute(
+        select(ResumeProfile).where(ResumeProfile.user_id == user_id)
+    )
+    resume_count = len(resume_result.scalars().all())
+    stats["resume_count"] = resume_count
 
     recent = applications[:5] if applications else []
 

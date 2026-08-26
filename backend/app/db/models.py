@@ -95,6 +95,7 @@ class ResumeProfile(Base):
     id = Column(String, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     original_filename = Column(String, nullable=False)
+    file_path = Column(Text, nullable=True)  # 上传的 PDF 文件路径
     parsed_text = Column(Text, nullable=True)
     skills = Column(JSONB, nullable=True)
     experience = Column(JSONB, nullable=True)
