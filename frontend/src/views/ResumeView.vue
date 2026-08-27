@@ -521,6 +521,8 @@ export default {
         }
       } catch (e) {
         console.error('删除失败', e)
+        const msg = e?.response?.data?.detail || '删除失败，请重试'
+        alert(msg)
       }
     },
 

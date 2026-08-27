@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
+from loguru import logger
 
 from app.db.database import get_db
 from app.db.models import ResumeProfile, ResumeVersion
@@ -149,8 +150,16 @@ async def delete_profile(
         file_path = Path(profile.file_path)
         if _is_within_uploads(file_path):
             if file_path.exists():
-                file_path.unlink()
+                try:
+                    file_path.unlink()
+                except OSError as e:
+                    logger.warning(f"删除 PDF 文件失败: {e}, profile_id={profile_id}")
 
-    await db.delete(profile)
-    await db.commit()
+    try:
+        await db.delete(profile)
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"删除简历画像失败: {str(e)}")
+
     return {"message": "删除成功"}
