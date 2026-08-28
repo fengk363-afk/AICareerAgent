@@ -1,15 +1,16 @@
 """
 JobSyncEngine — 岗位数据同步引擎
 管理多来源岗位数据的同步和更新
+支持岗位生命周期状态管理（ACTIVE/CLOSED/EXPIRED/REMOVED/UNKNOWN）
 """
 import uuid
-from typing import Optional, List
-from datetime import datetime
+from typing import Optional, List, Dict, Any
+from datetime import datetime, timedelta
 from loguru import logger
 
 from app.db.models import Job, JobSource, JobSyncRecord
 from app.db.database import get_db
-from sqlalchemy import select
+from sqlalchemy import select, update
 from app.agents.job_source_adapters import ADAPTER_REGISTRY, get_adapter
 
 
@@ -80,6 +81,14 @@ class JobSyncEngine:
             "is_active": True,
         },
         {
+            "id": "src_greenhouse",
+            "source_name": "greenhouse",
+            "source_type": "api",
+            "base_url": "https://boards-api.greenhouse.io/v1",
+            "description": "Greenhouse 招聘平台（API）",
+            "is_active": True,
+        },
+        {
             "id": "src_gdrc",
             "source_name": "gdrc",
             "source_type": "gdrc",
@@ -96,6 +105,12 @@ class JobSyncEngine:
             "is_active": True,
         },
     ]
+
+    # 支持岗位消失检测的数据源（有 external_id 且能可靠判断 OPEN/CLOSED）
+    CLOSABLE_SOURCES = {"greenhouse"}
+
+    # 岗位消失后标记为 CLOSED 前的等待天数
+    CLOSED_AFTER_DAYS = 7
 
     async def init_sources(self) -> List[dict]:
         """初始化/更新数据源配置（upsert 新数据源）"""
@@ -155,7 +170,9 @@ class JobSyncEngine:
 
             jobs_added = 0
             jobs_updated = 0
-            jobs_deleted = 0
+            jobs_closed = 0
+            jobs_reactivated = 0
+            failed_count = 0
             errors = []
 
             try:
@@ -164,18 +181,40 @@ class JobSyncEngine:
                     adapter = get_adapter(source_name)
                     if adapter:
                         try:
-                            jobs = await adapter.fetch_jobs()
-                            jobs_added = await self._upsert_jobs(db, jobs, source_name)
+                            # 优先使用 normalize 后的数据（包含 source_job_id）
+                            # 使用大 limit 确保获取所有岗位
+                            if hasattr(adapter, 'fetch_jobs_normalized'):
+                                jobs = await adapter.fetch_jobs_normalized(limit=1000)
+                            else:
+                                jobs = await adapter.fetch_jobs(limit=1000)
+                            # 同步成功，执行 upsert + 消失检测
+                            result = await self._sync_source(db, jobs, source_name)
+                            jobs_added = result["added"]
+                            jobs_updated = result["updated"]
+                            jobs_closed = result["closed"]
+                            jobs_reactivated = result["reactivated"]
                         except Exception as e:
+                            failed_count += 1
                             errors.append(f"{source_name}: {str(e)}")
+                            logger.error(f"[JobSync] 数据源 {source_name} 同步失败: {e}")
+                    else:
+                        errors.append(f"{source_name}: 适配器不存在")
                 else:
                     # 同步所有活跃数据源
                     for name, adapter in ADAPTER_REGISTRY.items():
                         try:
-                            jobs = await adapter.fetch_jobs()
-                            added = await self._upsert_jobs(db, jobs, name)
-                            jobs_added += added
+                            # 优先使用 normalize 后的数据
+                            if hasattr(adapter, 'fetch_jobs_normalized'):
+                                jobs = await adapter.fetch_jobs_normalized(limit=1000)
+                            else:
+                                jobs = await adapter.fetch_jobs(limit=1000)
+                            result = await self._sync_source(db, jobs, name)
+                            jobs_added += result["added"]
+                            jobs_updated += result["updated"]
+                            jobs_closed += result["closed"]
+                            jobs_reactivated += result["reactivated"]
                         except Exception as e:
+                            failed_count += 1
                             errors.append(f"{name}: {str(e)}")
                             logger.warning(f"数据源 {name} 同步失败: {e}")
 
@@ -183,7 +222,7 @@ class JobSyncEngine:
                 sync_record.status = "completed"
                 sync_record.jobs_added = jobs_added
                 sync_record.jobs_updated = jobs_updated
-                sync_record.jobs_deleted = jobs_deleted
+                sync_record.jobs_deleted = jobs_closed  # 复用 jobs_deleted 字段记录关闭数
                 sync_record.completed_at = datetime.utcnow()
                 if errors:
                     sync_record.error_message = "; ".join(errors)
@@ -210,10 +249,15 @@ class JobSyncEngine:
 
                 return {
                     "sync_id": sync_id,
+                    "source": source_name or "all",
                     "status": "completed",
-                    "jobs_added": jobs_added,
-                    "jobs_updated": jobs_updated,
-                    "jobs_deleted": jobs_deleted,
+                    "success": failed_count == 0,
+                    "fetched_count": jobs_added + jobs_updated,
+                    "created_count": jobs_added,
+                    "updated_count": jobs_updated,
+                    "closed_count": jobs_closed,
+                    "reactivated_count": jobs_reactivated,
+                    "failed_count": failed_count,
                     "errors": errors,
                     "started_at": sync_record.started_at.isoformat() if sync_record.started_at else None,
                     "completed_at": sync_record.completed_at.isoformat() if sync_record.completed_at else None,
@@ -223,50 +267,124 @@ class JobSyncEngine:
                 sync_record.status = "failed"
                 sync_record.error_message = str(e)
                 await db.commit()
+                logger.error(f"[JobSync] 同步任务异常: {e}")
                 return {
                     "sync_id": sync_id,
+                    "source": source_name or "all",
                     "status": "failed",
+                    "success": False,
                     "error": str(e),
                 }
 
-    async def _upsert_jobs(self, db, jobs: List[dict], source_name: str) -> int:
-        """插入或更新岗位"""
-        added = 0
-        for job_data in jobs:
-            # 检查是否已存在
-            existing = await db.execute(
-                select(Job).where(
-                    Job.source == source_name,
-                    Job.source_job_id == job_data.get("source_job_id", ""),
-                )
-            )
-            existing_job = existing.scalar_one_or_none()
+    async def _sync_source(self, db, jobs: List[dict], source_name: str) -> Dict[str, int]:
+        """同步单个数据源的岗位，返回统计结果"""
+        result = {"added": 0, "updated": 0, "closed": 0, "reactivated": 0}
+        now = datetime.utcnow()
 
-            if existing_job:
-                # 更新
+        # 空列表视为异常：API 可能返回 200 但无数据（配置错误、权限问题等）
+        # 此时不应执行消失检测，避免误下架所有岗位
+        if not jobs:
+            logger.warning(f"[{source_name}] 同步返回空列表，跳过 upsert 和消失检测")
+            return result
+
+        # 1. 先查询所有现有岗位，建立查找表（避免 autoflush 问题）
+        existing_map = {}
+        existing_result = await db.execute(
+            select(Job).where(Job.source == source_name)
+        )
+        for job in existing_result.scalars().all():
+            if job.source_job_id:
+                existing_map[job.source_job_id] = job
+
+        # 2. 处理本次同步的岗位
+        current_ids = set()
+        for job_data in jobs:
+            source_job_id = job_data.get("source_job_id", "")
+            if not source_job_id:
+                continue
+            current_ids.add(source_job_id)
+
+            if source_job_id in existing_map:
+                # 更新现有岗位
+                existing_job = existing_map[source_job_id]
                 for key, value in job_data.items():
                     if value is not None and hasattr(existing_job, key):
                         setattr(existing_job, key, value)
-                jobs_updated = True
+                existing_job.last_seen_at = now
+                existing_job.last_synced_at = now
+                # 如果岗位之前是 CLOSED/UNKNOWN，重新激活
+                if existing_job.status in ("closed", "unknown"):
+                    existing_job.status = "active"
+                    existing_job.status_changed_at = now
+                    result["reactivated"] += 1
+                    logger.info(f"[{source_name}] 重新激活岗位: {job_data.get('title', '')}")
+                elif existing_job.status != "active":
+                    existing_job.status = "active"
+                    existing_job.status_changed_at = now
+                    result["reactivated"] += 1
+                result["updated"] += 1
+                logger.info(
+                    f"[{source_name}] 更新: title={job_data.get('title', '')}, "
+                    f"status={existing_job.status}"
+                )
             else:
-                # 插入
+                # 新增岗位
                 job_id = str(uuid.uuid4())
-                job = Job(id=job_id, **job_data)
-                db.add(job)
-                added += 1
+                job_data["id"] = job_id
+                job_data["created_at"] = now
+                job_data["last_seen_at"] = now
+                job_data["last_synced_at"] = now
+                job_data["status"] = "active"
+                job_data["status_changed_at"] = now
+                try:
+                    job = Job(**job_data)
+                    db.add(job)
+                    result["added"] += 1
+                    logger.info(f"[{source_name}] 新增: title={job_data.get('title', '')}")
+                except Exception as e:
+                    logger.error(f"[{source_name}] 岗位创建失败: {e}, data={job_data}")
+                    continue
 
-            # 调试输出：打印岗位关键信息
-            desc_len = len(job_data.get("description", ""))
-            req_len = len(job_data.get("requirements", []))
-            logger.info(
-                f"[{source_name}] {'新增' if not existing_job else '更新'}: "
-                f"title={job_data.get('title', '')}, "
-                f"description_len={desc_len}, "
-                f"requirements_count={req_len}"
-            )
+        # 3. 检测消失的岗位（仅对有 external_id 的数据源）
+        if source_name in self.CLOSABLE_SOURCES:
+            for job_id, existing_job in existing_map.items():
+                if job_id not in current_ids:
+                    # 计算距离上次 seen 的时间
+                    if existing_job.last_seen_at:
+                        days_since_seen = (now - existing_job.last_seen_at).days
+                        if days_since_seen >= self.CLOSED_AFTER_DAYS:
+                            # 超过阈值，标记为 CLOSED
+                            existing_job.status = "closed"
+                            existing_job.status_changed_at = now
+                            result["closed"] += 1
+                            logger.info(
+                                f"[{source_name}] 岗位已关闭: {existing_job.title} "
+                                f"(last_seen={existing_job.last_seen_at}, {days_since_seen}天前)"
+                            )
+                        else:
+                            # 未超过阈值，标记为 UNKNOWN
+                            existing_job.status = "unknown"
+                            existing_job.status_changed_at = now
+                            logger.warning(
+                                f"[{source_name}] 岗位状态未知: {existing_job.title} "
+                                f"(last_seen={existing_job.last_seen_at}, {days_since_seen}天前)"
+                            )
+                    else:
+                        # 没有 last_seen_at，保守标记为 UNKNOWN
+                        existing_job.status = "unknown"
+                        existing_job.status_changed_at = now
+                        logger.warning(
+                            f"[{source_name}] 岗位状态未知（无 last_seen_at）: {existing_job.title}"
+                        )
+
+            if result["closed"] > 0 or result["reactivated"] > 0:
+                logger.info(
+                    f"[{source_name}] 消失检测完成: closed={result['closed']}, "
+                    f"reactivated={result['reactivated']}"
+                )
 
         await db.commit()
-        return added
+        return result
 
     async def get_sync_history(self, limit: int = 20) -> List[dict]:
         """获取同步历史"""

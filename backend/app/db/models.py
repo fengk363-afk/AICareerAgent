@@ -142,6 +142,14 @@ class CareerPreference(Base):
 
 # ── Job ───────────────────────────────────────────────────────
 
+class JobStatus(str, enum.Enum):
+    ACTIVE = "active"       # 岗位开放中
+    CLOSED = "closed"       # 岗位已关闭（从数据源消失）
+    EXPIRED = "expired"     # 岗位已过期
+    REMOVED = "removed"     # 岗位被手动移除
+    UNKNOWN = "unknown"     # 无法确定状态（同步失败等）
+
+
 class Job(Base):
     __tablename__ = "jobs"
     id = Column(String, primary_key=True, index=True)
@@ -179,6 +187,11 @@ class Job(Base):
     company_website = Column(String(255), nullable=True)
     application_method = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    # ── 岗位生命周期 ───────────────────────────────────────────
+    status = Column(String(20), nullable=False, default="active")  # active/closed/expired/removed/unknown
+    last_seen_at = Column(DateTime, nullable=True)                 # 最后一次从数据源看到该岗位的时间
+    status_changed_at = Column(DateTime, nullable=True)            # 状态最后变更时间
+    last_synced_at = Column(DateTime, nullable=True)               # 最后一次成功同步的时间
 
 
 # ── Application ───────────────────────────────────────────────

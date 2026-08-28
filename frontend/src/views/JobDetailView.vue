@@ -28,6 +28,7 @@
           <span v-if="job.season && !hasNormalizedTag(job, seasonLabel(job.season))" class="tag season">{{ seasonLabel(job.season) }}</span>
           <span v-if="job.company_type && !hasNormalizedTag(job, companyTypeLabel(job.company_type))" class="tag company-type">{{ companyTypeLabel(job.company_type) }}</span>
           <span v-if="job.company_country && !hasNormalizedTag(job, job.company_country)" class="tag country">{{ job.company_country }}</span>
+          <span v-if="job.status && job.status !== 'active'" class="tag" :class="statusTagClass(job.status)">{{ statusLabel(job.status) }}</span>
         </div>
       </div>
 
@@ -48,16 +49,19 @@
       <!-- 操作按钮 -->
       <div class="detail-actions">
         <button
-          v-if="job.apply_url"
+          v-if="job.apply_url && job.status !== 'closed'"
           class="btn-apply"
           :href="job.apply_url"
           target="_blank"
         >
           立即投递 →
         </button>
-        <button v-else class="btn-apply" @click="applyNow">
+        <button v-else-if="job.status !== 'closed'" class="btn-apply" @click="applyNow">
           一键投递
         </button>
+        <div v-else class="btn-apply btn-apply-disabled">
+          岗位已关闭
+        </div>
         <button
           class="btn-save"
           :class="{ saved: isSaved }"
@@ -402,6 +406,14 @@ export default {
         gd_public: '广东公共招聘'
       }
       return map[type] || type
+    },
+    statusLabel(status) {
+      const map = { active: '招聘中', closed: '已关闭', expired: '已过期', removed: '已移除', unknown: '状态未知' }
+      return map[status] || status
+    },
+    statusTagClass(status) {
+      const map = { active: 'tag-active', closed: 'tag-closed', expired: 'tag-expired', removed: 'tag-removed', unknown: 'tag-unknown' }
+      return map[status] || ''
     }
   }
 }
@@ -477,6 +489,10 @@ export default {
 .tag.season { background: #fff4e0; color: var(--orange); }
 .tag.company-type { background: var(--bg); color: var(--text-secondary); }
 .tag.country { background: #e8f0ff; color: #4a6cf7; }
+.tag-closed { background: #ffeaea; color: var(--red); }
+.tag-expired { background: #fff4e0; color: var(--orange); }
+.tag-removed { background: #f0f0f0; color: var(--text-tertiary); }
+.tag-unknown { background: #fff4e0; color: var(--orange); }
 
 .detail-title {
   font-size: 26px;
@@ -517,6 +533,12 @@ export default {
   cursor: pointer;
   font-family: inherit;
   text-decoration: none;
+}
+
+.btn-apply-disabled {
+  background: var(--bg);
+  color: var(--text-tertiary);
+  cursor: not-allowed;
 }
 
 .btn-save {

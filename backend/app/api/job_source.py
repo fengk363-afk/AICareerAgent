@@ -150,6 +150,14 @@ async def get_job_stats(db: AsyncSession = Depends(get_db)):
             season_stats[s] = 0
         season_stats[s] += 1
 
+    # 按状态统计
+    status_stats = {}
+    for job in all_jobs:
+        st = job.status or "active"
+        if st not in status_stats:
+            status_stats[st] = 0
+        status_stats[st] += 1
+
     # 校招/日常
     campus_count = sum(1 for j in all_jobs if j.campus_recruitment)
     foreign_count = sum(1 for j in all_jobs if j.is_foreign)
@@ -161,6 +169,7 @@ async def get_job_stats(db: AsyncSession = Depends(get_db)):
         "by_source": source_stats,
         "by_company_type": company_type_stats,
         "by_season": season_stats,
+        "by_status": status_stats,
         "campus_jobs": campus_count,
         "foreign_jobs": foreign_count,
         "remote_jobs": remote_count,

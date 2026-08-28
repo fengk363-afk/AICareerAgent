@@ -26,10 +26,11 @@ async def list_jobs(
     has_apply_url: Optional[bool] = Query(None),
     industry: Optional[str] = Query(None),  # 行业筛选（逗号分隔）
     job_category: Optional[str] = Query(None),  # 岗位分类筛选（逗号分隔）
+    status: Optional[str] = Query(None, description="岗位状态: active/closed/expired/removed/unknown"),
     limit: int = Query(20, le=100),
     offset: int = Query(0),
 ):
-    """搜索岗位（支持多维度筛选）"""
+    """搜索岗位（支持多维度筛选），默认只展示 ACTIVE 岗位"""
     return await engine.search_jobs(
         keyword=keyword, location=location, locations=locations,
         job_type=job_type, company_type=company_type,
@@ -37,6 +38,7 @@ async def list_jobs(
         salary_ranges=salary_ranges,
         is_foreign=is_foreign, is_remote=is_remote, has_apply_url=has_apply_url,
         industry=industry, job_category=job_category,
+        status=status,
         limit=limit, offset=offset,
     )
 

@@ -658,12 +658,19 @@ class JobSourceEngine:
         season: Optional[str] = None,
         industry: Optional[str] = None,  # 行业筛选（逗号分隔）
         job_category: Optional[str] = None,  # 岗位分类筛选（逗号分隔）
+        status: Optional[str] = None,  # 岗位状态筛选
         limit: int = 20,
         offset: int = 0,
     ) -> List[JobResponse]:
         """搜索岗位（支持多维度筛选）"""
         async for db in get_db():
             query = select(Job)
+
+            # 默认只展示 ACTIVE 岗位
+            if status is None:
+                query = query.where(Job.status == "active")
+            else:
+                query = query.where(Job.status == status)
 
             if keyword:
                 kw = keyword.lower()

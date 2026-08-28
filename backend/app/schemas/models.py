@@ -91,7 +91,12 @@ class ResumeProfileResponse(ResumeProfileCreate):
 
 class JobCreate(BaseModel):
     source: str = "mock"
+    source_name: Optional[str] = None
+    source_url: Optional[str] = None
+    source_type: Optional[str] = None
+    source_job_id: Optional[str] = None
     company: str
+    company_type: Optional[str] = None
     title: str
     location: str
     job_type: str = "full_time"
@@ -99,7 +104,6 @@ class JobCreate(BaseModel):
     description: str
     requirements: Optional[list] = None
     preferred_skills: Optional[list] = None
-    company_type: Optional[str] = None
     tags: Optional[list] = None
     is_remote: bool = False
     is_foreign: bool = False
@@ -108,6 +112,10 @@ class JobCreate(BaseModel):
     apply_source: Optional[str] = None
     company_website: Optional[str] = None
     application_method: Optional[str] = None
+    status: Optional[str] = "active"
+    last_seen_at: Optional[datetime] = None
+    status_changed_at: Optional[datetime] = None
+    last_synced_at: Optional[datetime] = None
 
 
 class JobResponse(BaseModel):
@@ -146,6 +154,10 @@ class JobResponse(BaseModel):
     company_website: Optional[str] = None
     application_method: Optional[str] = None
     created_at: datetime
+    status: Optional[str] = "active"  # active/closed/expired/removed/unknown
+    last_seen_at: Optional[datetime] = None
+    status_changed_at: Optional[datetime] = None
+    last_synced_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

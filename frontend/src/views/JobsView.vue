@@ -494,6 +494,8 @@ export default {
     async syncJobs() {
       this.syncing = true
       try {
+        // 同步所有有真实数据源的岗位
+        await jobApi.syncJobs('greenhouse')
         await jobApi.syncJobs('gdrc')
         await jobApi.syncJobs('gd_public')
         await this.loadJobs()
