@@ -166,6 +166,9 @@ async def get_job_stats(db: AsyncSession = Depends(get_db)):
 
     return {
         "total_jobs": total,
+        "active_jobs": status_stats.get("active", 0),
+        "unknown_jobs": status_stats.get("unknown", 0),
+        "closed_jobs": status_stats.get("closed", 0),
         "by_source": source_stats,
         "by_company_type": company_type_stats,
         "by_season": season_stats,

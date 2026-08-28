@@ -8,8 +8,16 @@
     <!-- 统计面板 -->
     <div class="stats-panel">
       <div class="stat-item">
+        <div class="stat-num">{{ stats.active_jobs || 0 }}</div>
+        <div class="stat-label">开放岗位</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">{{ stats.unknown_jobs || 0 }}</div>
+        <div class="stat-label">待确认</div>
+      </div>
+      <div class="stat-item">
         <div class="stat-num">{{ stats.total_jobs || 0 }}</div>
-        <div class="stat-label">总岗位</div>
+        <div class="stat-label">历史总数</div>
       </div>
       <div class="stat-item">
         <div class="stat-num">{{ stats.guangdong_jobs || 0 }}</div>
