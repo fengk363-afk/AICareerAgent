@@ -163,6 +163,14 @@ class JobResponse(BaseModel):
         from_attributes = True
 
 
+class JobListResponse(BaseModel):
+    jobs: List[JobResponse]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+
 class MatchScoreResponse(BaseModel):
     job_id: str
     job_title: str

@@ -268,11 +268,11 @@
         :class="['sort-btn', { active: sortBy === opt.value }]"
         @click="sortBy = opt.value; searchJobs()"
       >{{ opt.label }}</button>
-      <span class="job-count">{{ jobs.length }} 个岗位</span>
+      <span class="job-count">{{ jobs.length }} / {{ jobsTotal }} 个开放岗位</span>
     </div>
 
     <!-- 空状态 -->
-    <div v-if="jobs.length === 0 && !loading" class="empty-state">
+    <div v-if="jobs.length === 0 && !loadingJobs" class="empty-state">
       <div class="empty-icon">📭</div>
       <p>暂无岗位数据</p>
       <div class="empty-actions">
@@ -285,10 +285,10 @@
       </div>
     </div>
 
-    <div v-if="loading" class="loading">加载中...</div>
+    <div v-if="loadingJobs" class="loading">加载中...</div>
 
     <!-- 岗位列表 -->
-    <div v-else class="job-list">
+    <div v-if="!loadingJobs" class="job-list">
       <div
         v-for="job in jobs"
         :key="job.id"
@@ -332,6 +332,17 @@
           </div>
         </div>
       </div>
+
+      <!-- 加载更多按钮（放在列表最底部） -->
+      <div v-if="jobs.length > 0" class="load-more-area">
+        <button
+          class="load-more-btn"
+          :disabled="loadingMore"
+          @click="loadMoreJobs"
+        >
+          {{ loadingMore ? '加载中...' : (hasMore ? '加载更多岗位' : '已加载全部岗位') }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -344,6 +355,12 @@ export default {
   data() {
     return {
       jobs: [],
+      jobsTotal: 0,
+      jobsOffset: 0,
+      jobsLimit: 20,
+      loadingJobs: false,
+      loadingMore: false,
+      hasMore: false,
       stats: {},
       loading: false,
       syncing: false,
@@ -393,7 +410,7 @@ export default {
   },
   async created() {
     await this.loadStats()
-    await this.loadJobs()
+    await this.loadJobs(true)
     await this.loadSavedJobs()
     await this.loadLocations()
     await this.loadFilterOptions()
@@ -410,7 +427,8 @@ export default {
     async loadLocations() {
       // 从已有岗位中提取所有地点
       try {
-        const allJobs = await jobApi.listJobs({ limit: 100 })
+        const res = await jobApi.listJobs({ limit: 100 })
+        const allJobs = res.jobs || []
         const locSet = new Set()
         for (const job of allJobs) {
           if (job.locations && Array.isArray(job.locations)) {
@@ -439,10 +457,16 @@ export default {
       }
     },
 
-    async loadJobs() {
-      this.loading = true
+    async loadJobs(reset = false) {
+      if (reset) {
+        this.jobsOffset = 0
+        this.jobs = []
+        this.jobsTotal = 0
+        this.hasMore = true
+      }
+      this.loadingJobs = true
       try {
-        const params = { keyword: this.searchKeyword || undefined }
+        const params = { keyword: this.searchKeyword || undefined, limit: this.jobsLimit, offset: this.jobsOffset }
         if (this.filterRemote) params.is_remote = true
         if (this.filterForeign) params.is_foreign = true
         if (this.filterCampus) params.campus_recruitment = true
@@ -475,7 +499,18 @@ export default {
           params.is_foreign = true
         }
 
-        this.jobs = await jobApi.listJobs(params)
+        const res = await jobApi.listJobs(params)
+        const newJobs = res.jobs || []
+        const total = res.total ?? 0
+
+        if (reset) {
+          this.jobs = newJobs
+        } else {
+          this.jobs = [...this.jobs, ...newJobs]
+        }
+        this.jobsTotal = total
+        this.hasMore = res.has_more ?? false
+
         if (this.sortBy === 'salary') {
           this.jobs.sort((a, b) => (b.salary_range?.max || 0) - (a.salary_range?.max || 0))
         } else if (this.sortBy === 'latest') {
@@ -484,7 +519,44 @@ export default {
       } catch (e) {
         console.error('加载岗位失败', e)
       } finally {
-        this.loading = false
+        this.loadingJobs = false
+      }
+    },
+
+    async loadMoreJobs() {
+      if (this.loadingMore || !this.hasMore) return
+      this.loadingMore = true
+      try {
+        const nextOffset = this.jobsOffset + this.jobsLimit
+        const params = { keyword: this.searchKeyword || undefined, limit: this.jobsLimit, offset: nextOffset }
+        if (this.filterRemote) params.is_remote = true
+        if (this.filterForeign) params.is_foreign = true
+        if (this.filterCampus) params.campus_recruitment = true
+        if (this.selectedLocations.length > 0) params.locations = this.selectedLocations.join(',')
+        if (this.selectedSalaryRanges.length > 0) params.salary_ranges = this.selectedSalaryRanges.map(r => r.value).join(',')
+        if (this.selectedIndustries.length > 0) params.industry = this.selectedIndustries.join(',')
+        if (this.selectedCategories.length > 0) params.job_category = this.selectedCategories.join(',')
+        if (this.activeFilter === 'gdrc') params.source_type = 'gdrc'
+        else if (this.activeFilter === 'gd_public') params.source_type = 'gd_public'
+        else if (this.activeFilter === 'campus') params.campus_recruitment = true
+        else if (this.activeFilter === 'foreign') params.is_foreign = true
+
+        const res = await jobApi.listJobs(params)
+        const newJobs = res.jobs || []
+        this.jobs = [...this.jobs, ...newJobs]
+        this.jobsOffset = nextOffset
+        this.jobsTotal = res.total ?? 0
+        this.hasMore = res.has_more ?? false
+
+        if (this.sortBy === 'salary') {
+          this.jobs.sort((a, b) => (b.salary_range?.max || 0) - (a.salary_range?.max || 0))
+        } else if (this.sortBy === 'latest') {
+          this.jobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        }
+      } catch (e) {
+        console.error('加载更多岗位失败', e)
+      } finally {
+        this.loadingMore = false
       }
     },
 
@@ -496,7 +568,7 @@ export default {
     },
 
     async searchJobs() {
-      await this.loadJobs()
+      await this.loadJobs(true)
     },
 
     async syncJobs() {
@@ -506,7 +578,7 @@ export default {
         await jobApi.syncJobs('greenhouse')
         await jobApi.syncJobs('gdrc')
         await jobApi.syncJobs('gd_public')
-        await this.loadJobs()
+        await this.loadJobs(true)
         await this.loadStats()
         await this.loadLocations()
       } catch (e) {
@@ -521,7 +593,7 @@ export default {
       this.seeding = true
       try {
         await jobApi.seedJobs()
-        await this.loadJobs()
+        await this.loadJobs(true)
         await this.loadStats()
         await this.loadLocations()
       } catch (e) {
@@ -1435,6 +1507,34 @@ export default {
 
 /* Loading */
 .loading { text-align: center; padding: 40px; color: var(--text-tertiary); }
+
+/* 加载更多 */
+.load-more-area {
+  text-align: center;
+  padding: 24px 0 40px;
+}
+
+.load-more-btn {
+  padding: 10px 32px;
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--bg-white);
+  color: var(--blue);
+  border: 1.5px solid var(--blue);
+  border-radius: 980px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.load-more-btn:hover:not(:disabled) {
+  background: var(--blue-light);
+}
+
+.load-more-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 /* 响应式 */
 @media (max-width: 734px) {

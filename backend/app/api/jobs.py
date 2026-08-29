@@ -6,12 +6,12 @@ from typing import Optional, List
 from app.db.database import get_db
 from app.db.models import Job, ApplicationEvent
 from app.agents.engine import engine
-from app.schemas.models import JobResponse, MatchScoreResponse
+from app.schemas.models import JobResponse, MatchScoreResponse, JobListResponse
 
 router = APIRouter()
 
 
-@router.get("/", response_model=list[JobResponse])
+@router.get("/", response_model=JobListResponse)
 async def list_jobs(
     keyword: Optional[str] = Query(None),
     location: Optional[str] = Query(None),
@@ -27,10 +27,10 @@ async def list_jobs(
     industry: Optional[str] = Query(None),  # 行业筛选（逗号分隔）
     job_category: Optional[str] = Query(None),  # 岗位分类筛选（逗号分隔）
     status: Optional[str] = Query(None, description="岗位状态: active/closed/expired/removed/unknown"),
-    limit: int = Query(20, le=100),
+    limit: int = Query(50, le=100),
     offset: int = Query(0),
 ):
-    """搜索岗位（支持多维度筛选），默认只展示 ACTIVE 岗位"""
+    """搜索岗位（支持多维度筛选），默认只展示 ACTIVE 岗位，返回分页结果"""
     return await engine.search_jobs(
         keyword=keyword, location=location, locations=locations,
         job_type=job_type, company_type=company_type,

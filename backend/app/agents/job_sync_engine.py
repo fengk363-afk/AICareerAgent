@@ -89,6 +89,30 @@ class JobSyncEngine:
             "is_active": True,
         },
         {
+            "id": "src_lever",
+            "source_name": "lever",
+            "source_type": "api",
+            "base_url": "https://boards-api.lever.co/v1",
+            "description": "Lever 招聘平台（公开 API）",
+            "is_active": True,
+        },
+        {
+            "id": "src_ashby",
+            "source_name": "ashby",
+            "source_type": "api",
+            "base_url": "https://api.ashbyhq.com",
+            "description": "Ashby 招聘平台（API）",
+            "is_active": True,
+        },
+        {
+            "id": "src_smartrecruiters",
+            "source_name": "smartrecruiters",
+            "source_type": "api",
+            "base_url": "https://api.smartrecruiters.com",
+            "description": "SmartRecruiters 招聘平台（API）",
+            "is_active": True,
+        },
+        {
             "id": "src_gdrc",
             "source_name": "gdrc",
             "source_type": "gdrc",
@@ -107,7 +131,7 @@ class JobSyncEngine:
     ]
 
     # 支持岗位消失检测的数据源（有 external_id 且能可靠判断 OPEN/CLOSED）
-    CLOSABLE_SOURCES = {"greenhouse"}
+    CLOSABLE_SOURCES = {"greenhouse", "lever", "ashby", "smartrecruiters"}
 
     # 岗位消失后标记为 CLOSED 前的等待天数
     CLOSED_AFTER_DAYS = 7

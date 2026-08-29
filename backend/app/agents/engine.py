@@ -66,8 +66,9 @@ class CareerEngine:
 
         profile = await self.resume_engine.parse_and_create(user_id, file_bytes, filename)
         jobs = await self.job_source_engine.search_jobs()
+        jobs_list = jobs if isinstance(jobs, list) else jobs.get("jobs", [])
         matches = []
-        for job in jobs:
+        for job in jobs_list:
             match = await self.match_engine.calculate_match(profile.id, job.id)
             if match:
                 matches.append(match)
@@ -91,11 +92,17 @@ class CareerEngine:
 
     # ── Jobs ─────────────────────────────────────────────────────
 
-    async def get_jobs(self, limit: int = 20, offset: int = 0):
-        return await self.job_source_engine.search_jobs(limit=limit, offset=offset)
+    async def get_jobs(self, limit: int = 50, offset: int = 0):
+        result = await self.job_source_engine.search_jobs(limit=limit, offset=offset)
+        if isinstance(result, list):
+            return {"jobs": result, "total": len(result), "limit": limit, "offset": offset, "has_more": False}
+        return result
 
     async def search_jobs(self, **kwargs):
-        return await self.job_source_engine.search_jobs(**kwargs)
+        result = await self.job_source_engine.search_jobs(**kwargs)
+        if isinstance(result, list):
+            return {"jobs": result, "total": len(result), "limit": kwargs.get("limit", 50), "offset": kwargs.get("offset", 0), "has_more": False}
+        return result
 
     async def seed_jobs(self):
         return await self.job_source_engine.seed_mock_jobs()

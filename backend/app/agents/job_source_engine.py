@@ -20,7 +20,7 @@ class _JobSourceEnum(str, enum.Enum):
     INDEED = "indeed"
     GLASSDOOR = "glassdoor"
     COMPANY = "company"
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.db.database import get_db
 from app.schemas.models import JobResponse
 from app.agents.job_source_adapters import ADAPTER_REGISTRY, get_adapter
@@ -659,115 +659,129 @@ class JobSourceEngine:
         industry: Optional[str] = None,  # 行业筛选（逗号分隔）
         job_category: Optional[str] = None,  # 岗位分类筛选（逗号分隔）
         status: Optional[str] = None,  # 岗位状态筛选
-        limit: int = 20,
+        limit: int = 50,
         offset: int = 0,
-    ) -> List[JobResponse]:
-        """搜索岗位（支持多维度筛选）"""
+    ) -> dict:
+        """搜索岗位（支持多维度筛选），返回分页结果 {jobs, total, limit, offset, has_more}"""
         async for db in get_db():
-            query = select(Job)
-
-            # 默认只展示 ACTIVE 岗位
-            if status is None:
-                query = query.where(Job.status == "active")
-            else:
-                query = query.where(Job.status == status)
-
-            if keyword:
-                kw = keyword.lower()
-                query = query.where(
-                    (Job.title.ilike(f"%{kw}%")) |
-                    (Job.company.ilike(f"%{kw}%")) |
-                    (Job.description.ilike(f"%{kw}%"))
-                )
-            if location:
-                query = query.where(Job.location.ilike(f"%{location}%"))
-            if locations:
-                # 多地点筛选：任意地点命中即可（OR 逻辑）
-                loc_list = [l.strip() for l in locations.split(",") if l.strip()]
-                if loc_list:
-                    from sqlalchemy import or_
-                    location_conditions = [Job.locations.contains([loc]) for loc in loc_list]
-                    query = query.where(or_(*location_conditions))
-            if job_type:
-                query = query.where(Job.job_type == job_type)
-            if company_type:
-                query = query.where(Job.company_type == company_type)
-            if is_foreign is not None:
-                query = query.where(Job.is_foreign == is_foreign)
-            if is_remote is not None:
-                query = query.where(Job.is_remote == is_remote)
-            if has_apply_url is not None:
-                if has_apply_url:
-                    query = query.where(Job.apply_url.isnot(None))
+            # 构建基础查询条件（jobs 和 count 共用）
+            def _build_query():
+                q = select(Job)
+                # 默认只展示 ACTIVE 岗位
+                if status is None:
+                    q = q.where(Job.status == "active")
                 else:
-                    query = query.where(Job.apply_url.is_(None))
-            if salary_min is not None:
-                query = query.where(Job.salary_range["min"].as_integer() >= salary_min)
-            if salary_max is not None:
-                query = query.where(Job.salary_range["max"].as_integer() <= salary_max)
-            if salary_ranges:
-                # 多薪资范围筛选：任意范围命中即可（OR 逻辑）
-                range_list = [r.strip() for r in salary_ranges.split(",") if r.strip()]
-                if range_list:
-                    from sqlalchemy import or_
-                    salary_conditions = []
-                    for range_str in range_list:
-                        if '-' in range_str:
-                            parts = range_str.split('-')
-                            if len(parts) == 2:
+                    q = q.where(Job.status == status)
+
+                if keyword:
+                    kw = keyword.lower()
+                    q = q.where(
+                        (Job.title.ilike(f"%{kw}%")) |
+                        (Job.company.ilike(f"%{kw}%")) |
+                        (Job.description.ilike(f"%{kw}%"))
+                    )
+                if location:
+                    q = q.where(Job.location.ilike(f"%{location}%"))
+                if locations:
+                    loc_list = [l.strip() for l in locations.split(",") if l.strip()]
+                    if loc_list:
+                        from sqlalchemy import or_
+                        location_conditions = [Job.locations.contains([loc]) for loc in loc_list]
+                        q = q.where(or_(*location_conditions))
+                if job_type:
+                    q = q.where(Job.job_type == job_type)
+                if company_type:
+                    q = q.where(Job.company_type == company_type)
+                if is_foreign is not None:
+                    q = q.where(Job.is_foreign == is_foreign)
+                if is_remote is not None:
+                    q = q.where(Job.is_remote == is_remote)
+                if has_apply_url is not None:
+                    if has_apply_url:
+                        q = q.where(Job.apply_url.isnot(None))
+                    else:
+                        q = q.where(Job.apply_url.is_(None))
+                if salary_min is not None:
+                    q = q.where(Job.salary_range["min"].as_integer() >= salary_min)
+                if salary_max is not None:
+                    q = q.where(Job.salary_range["max"].as_integer() <= salary_max)
+                if salary_ranges:
+                    range_list = [r.strip() for r in salary_ranges.split(",") if r.strip()]
+                    if range_list:
+                        from sqlalchemy import or_
+                        salary_conditions = []
+                        for range_str in range_list:
+                            if '-' in range_str:
+                                parts = range_str.split('-')
+                                if len(parts) == 2:
+                                    try:
+                                        min_val = float(parts[0])
+                                        max_val = float(parts[1])
+                                        salary_conditions.append(
+                                            (Job.salary_range["min"].as_integer() >= min_val) &
+                                            (Job.salary_range["max"].as_integer() <= max_val)
+                                        )
+                                    except ValueError:
+                                        pass
+                            elif range_str.endswith('+'):
                                 try:
-                                    min_val = float(parts[0])
-                                    max_val = float(parts[1])
+                                    min_val = float(range_str[:-1])
                                     salary_conditions.append(
-                                        (Job.salary_range["min"].as_integer() >= min_val) &
-                                        (Job.salary_range["max"].as_integer() <= max_val)
+                                        Job.salary_range["min"].as_integer() >= min_val
                                     )
                                 except ValueError:
                                     pass
-                        elif range_str.endswith('+'):
-                            try:
-                                min_val = float(range_str[:-1])
-                                salary_conditions.append(
-                                    Job.salary_range["min"].as_integer() >= min_val
-                                )
-                            except ValueError:
-                                pass
-                    if salary_conditions:
-                        query = query.where(or_(*salary_conditions))
-            if tags:
-                for tag in tags:
-                    query = query.where(Job.tags.contains([tag]))
-            if source_type:
-                query = query.where(Job.source_type == source_type)
-            if company_country:
-                query = query.where(Job.company_country.ilike(f"%{company_country}%"))
-            if visa_support is not None:
-                query = query.where(Job.visa_support == visa_support)
-            if english_required is not None:
-                query = query.where(Job.english_required == english_required)
-            if graduate_program is not None:
-                query = query.where(Job.graduate_program == graduate_program)
-            if campus_recruitment is not None:
-                query = query.where(Job.campus_recruitment == campus_recruitment)
-            if season:
-                query = query.where(Job.season == season)
-            if industry:
-                # 多行业筛选：任意行业命中即可（OR 逻辑）
-                industry_list = [i.strip() for i in industry.split(",") if i.strip()]
-                if industry_list:
-                    from sqlalchemy import or_
-                    industry_conditions = [Job.industry == ind for ind in industry_list]
-                    query = query.where(or_(*industry_conditions))
-            if job_category:
-                # 多岗位分类筛选：任意分类命中即可（OR 逻辑）
-                category_list = [c.strip() for c in job_category.split(",") if c.strip()]
-                if category_list:
-                    from sqlalchemy import or_
-                    category_conditions = [Job.job_category == cat for cat in category_list]
-                    query = query.where(or_(*category_conditions))
+                        if salary_conditions:
+                            q = q.where(or_(*salary_conditions))
+                if tags:
+                    for tag in tags:
+                        q = q.where(Job.tags.contains([tag]))
+                if source_type:
+                    q = q.where(Job.source_type == source_type)
+                if company_country:
+                    q = q.where(Job.company_country.ilike(f"%{company_country}%"))
+                if visa_support is not None:
+                    q = q.where(Job.visa_support == visa_support)
+                if english_required is not None:
+                    q = q.where(Job.english_required == english_required)
+                if graduate_program is not None:
+                    q = q.where(Job.graduate_program == graduate_program)
+                if campus_recruitment is not None:
+                    q = q.where(Job.campus_recruitment == campus_recruitment)
+                if season:
+                    q = q.where(Job.season == season)
+                if industry:
+                    industry_list = [i.strip() for i in industry.split(",") if i.strip()]
+                    if industry_list:
+                        from sqlalchemy import or_
+                        industry_conditions = [Job.industry == ind for ind in industry_list]
+                        q = q.where(or_(*industry_conditions))
+                if job_category:
+                    category_list = [c.strip() for c in job_category.split(",") if c.strip()]
+                    if category_list:
+                        from sqlalchemy import or_
+                        category_conditions = [Job.job_category == cat for cat in category_list]
+                        q = q.where(or_(*category_conditions))
+                return q
 
-            result = await db.execute(query.offset(offset).limit(limit))
-            return [JobResponse.model_validate(r) for r in result.scalars().all()]
+            # 先查 total
+            count_query = select(func.count()).select_from(_build_query())
+            total_result = await db.execute(count_query)
+            total = total_result.scalar_one()
+
+            # 再查分页数据
+            data_query = _build_query().offset(offset).limit(limit)
+            result = await db.execute(data_query)
+            jobs = [JobResponse.model_validate(r) for r in result.scalars().all()]
+
+            has_more = (offset + len(jobs)) < total
+            return {
+                "jobs": jobs,
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "has_more": has_more,
+            }
 
     async def get_job(self, job_id: str) -> Optional[JobResponse]:
         async for db in get_db():

@@ -276,10 +276,34 @@ def _get_greenhouse_source():
     return GreenhouseSource()
 
 
+def _get_lever_source():
+    """延迟导入 Lever 适配器"""
+    from app.agents.sources.lever_source import LeverSource
+    return LeverSource()
+
+
+def _get_ashby_source():
+    """延迟导入 Ashby 适配器"""
+    from app.agents.sources.ashby_source import AshbySource
+    return AshbySource()
+
+
+def _get_smartrecruiters_source():
+    """延迟导入 SmartRecruiters 适配器"""
+    from app.agents.sources.smartrecruiters_source import SmartRecruitersSource
+    return SmartRecruitersSource()
+
+
 def get_adapter(source_name: str) -> Optional[JobSourceAdapter]:
     """获取适配器"""
     if source_name == "greenhouse":
         return _get_greenhouse_source()
+    elif source_name == "lever":
+        return _get_lever_source()
+    elif source_name == "ashby":
+        return _get_ashby_source()
+    elif source_name == "smartrecruiters":
+        return _get_smartrecruiters_source()
     return ADAPTER_REGISTRY.get(source_name)
 
 
