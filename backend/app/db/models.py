@@ -163,6 +163,10 @@ class Job(Base):
     title = Column(String, nullable=False)
     location = Column(String, nullable=False)
     locations = Column(JSONB, nullable=True)  # 标准化地点列表，如 ["广州", "深圳"]
+    # ── V7.1 岗位标准化字段 ────────────────────────────────────
+    normalized_company = Column(String, nullable=True)  # 归一化公司名（小写、去后缀）
+    normalized_title = Column(String, nullable=True)    # 归一化职位名（小写、去括号）
+    normalized_location = Column(String, nullable=True) # 归一化地点（小写、统一标点）
     job_type = Column(String, nullable=False, default="full_time")
     salary_range = Column(JSONB, nullable=True)
     description = Column(Text, nullable=False)

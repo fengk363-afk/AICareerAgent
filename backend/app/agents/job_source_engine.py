@@ -2,6 +2,9 @@
 JobSourceEngine — 统一岗位数据源系统
 支持多种招聘平台，MVP 使用 Mock 数据
 """
+import re
+import html as html_module
+import unicodedata
 import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -24,6 +27,364 @@ from sqlalchemy import select, func
 from app.db.database import get_db
 from app.schemas.models import JobResponse
 from app.agents.job_source_adapters import ADAPTER_REGISTRY, get_adapter
+
+
+# ── V7.1 岗位标准化函数 ──────────────────────────────────────────
+
+# 公司后缀模式（按长度降序排列，避免部分匹配）
+_COMPANY_SUFFIX_PATTERNS = [
+    r'\s*,?\s*Inc\.?$',
+    r'\s*,?\s*Ltd\.?$',
+    r'\s*,?\s*Limited$',
+    r'\s*,?\s*LLC$',
+    r'\s*,?\s*Corp\.?$',
+    r'\s*,?\s*Corporation$',
+    r'\s*,?\s*Co\.?$',
+    r'\s*,?\s*GmbH$',
+    r'\s*,?\s*AG$',
+    r'\s*,?\s*BV$',
+    r'\s*,?\s*NV$',
+    r'\s*,?\s*SA$',
+    r'\s*,?\s*AB$',
+    r'\s*,?\s*Pty\.?$',
+    r'\s*,?\s*Group$',
+    r'\s*,?\s*Holdings?$',
+    r'\s*,?\s*International$',
+    r'\s*,?\s*International\s+Group$',
+    r'\s*,?\s*China$',
+    r'\s*,?\s*中国$',
+    r'\s*,?\s*有限公司$',
+    r'\s*,?\s*股份有限公司$',
+    r'\s*,?\s*集团$',
+]
+
+# 职位级别前缀（保留，不删除）
+_LEVEL_PREFIXES = [
+    r'^(Junior\s+|Entry\s+Level\s+|Entry\s+Level\s+)?',
+    r'^(Senior\s+|Lead\s+|Staff\s+|Principal\s+|Distinguished\s+|Fellow\s+)?',
+    r'^(Associate\s+|Mid\s+Level\s+|Mid\s+Level\s+)?',
+]
+
+# 中国城市别名映射
+_CITY_ALIASES = {
+    '北京': 'beijing', '北京市': 'beijing',
+    '上海': 'shanghai', '上海市': 'shanghai',
+    '广州': 'guangzhou', '广州市': 'guangzhou',
+    '深圳': 'shenzhen', '深圳市': 'shenzhen',
+    '杭州': 'hangzhou', '杭州市': 'hangzhou',
+    '成都': 'chengdu', '成都市': 'chengdu',
+    '武汉': 'wuhan', '武汉市': 'wuhan',
+    '南京': 'nanjing', '南京市': 'nanjing',
+    '重庆': 'chongqing', '重庆市': 'chongqing',
+    '西安': 'xian', '西安市': 'xian',
+    '苏州': 'suzhou', '苏州市': 'suzhou',
+    '天津': 'tianjin', '天津市': 'tianjin',
+    '长沙': 'changsha', '长沙市': 'changsha',
+    '宁波': 'ningbo', '宁波市': 'ningbo',
+    '青岛': 'qingdao', '青岛市': 'qingdao',
+    '大连': 'dalian', '大连市': 'dalian',
+    '厦门': 'xiamen', '厦门市': 'xiamen',
+    '福州': 'fuzhou', '福州市': 'fuzhou',
+    '合肥': 'hefei', '合肥市': 'hefei',
+    '郑州': 'zhengzhou', '郑州市': 'zhengzhou',
+    '沈阳': 'shenyang', '沈阳市': 'shenyang',
+    '哈尔滨': 'harbin', '哈尔滨市': 'harbin',
+    '长春': 'changchun', '长春市': 'changchun',
+    '济南': 'jinan', '济南市': 'jinan',
+    '昆明': 'kunming', '昆明市': 'kunming',
+    '贵阳': 'guiyang', '贵阳市': 'guiyang',
+    '南昌': 'nanchang', '南昌市': 'nanchang',
+    '太原': 'taiyuan', '太原市': 'taiyuan',
+    '石家庄': 'shijiazhuang', '石家庄市': 'shijiazhuang',
+    '南宁': 'nanning', '南宁市': 'nanning',
+    '海口': 'haikou', '海口市': 'haikou',
+    '兰州': 'lanzhou', '兰州市': 'lanzhou',
+    '乌鲁木齐': 'urumqi', '乌鲁木齐市': 'urumqi',
+    '呼和浩特': 'hohhot', '呼和浩特市': 'hohhot',
+    '银川': 'yinchuan', '银川市': 'yinchuan',
+    '西宁': 'xining', '西宁市': 'xining',
+    '拉萨': 'lhasa', '拉萨市': 'lhasa',
+    '珠海': 'zhuhai', '珠海市': 'zhuhai',
+    '佛山': 'foshan', '佛山市': 'foshan',
+    '东莞': 'dongguan', '东莞市': 'dongguan',
+    '无锡': 'wuxi', '无锡市': 'wuxi',
+    '常州': 'changzhou', '常州市': 'changzhou',
+    '徐州': 'xuzhou', '徐州市': 'xuzhou',
+    '南通': 'nantong', '南通市': 'nantong',
+    '扬州': 'yangzhou', '扬州市': 'yangzhou',
+    '盐城': 'yancheng', '盐城市': 'yancheng',
+    '镇江': 'zhenjiang', '镇江市': 'zhenjiang',
+    '泰州': 'taizhou', '泰州市': 'taizhou',
+    '淮安': 'huai_an', '淮安市': "huai_an",
+    '宿迁': 'suqian', '宿迁市': 'suqian',
+    '连云港': 'lianyungang', '连云港市': 'lianyungang',
+    '蚌埠': 'bengbu', '蚌埠市': 'bengbu',
+    '芜湖': 'wuhu', '芜湖市': 'wuhu',
+    '淮南': 'huainan', '淮南市': 'huainan',
+    '马鞍山': 'ma_anshan', '马鞍山市': "ma_anshan",
+    '淮北': 'huaibei', '淮北市': 'huaibei',
+    '铜陵': 'tongling', '铜陵市': 'tongling',
+    '安庆': 'anqing', '安庆市': 'anqing',
+    '黄山': 'huangshan', '黄山市': 'huangshan',
+    '滁州': 'chuzhou', '滁州市': 'chuzhou',
+    '阜阳': 'fuyang', '阜阳市': 'fuyang',
+    '宿州': 'suzhou_cn', '宿州市': 'suzhou_cn',
+    '六安': 'lu_an', '六安市': "lu_an",
+    '亳州': 'bozhou', '亳州市': 'bozhou',
+    '池州': 'chizhou', '池州市': 'chizhou',
+    '宣城': 'xuancheng', '宣城市': 'xuancheng',
+    '福州': 'fuzhou', '福州市': 'fuzhou',
+    '厦门': 'xiamen', '厦门市': 'xiamen',
+    '莆田': 'putian', '莆田市': 'putian',
+    '三明': 'sanming', '三明市': 'sanming',
+    '泉州': 'quanzhou', '泉州市': 'quanzhou',
+    '漳州': 'zhangzhou', '漳州市': 'zhangzhou',
+    '南平': 'nanping', '南平市': 'nanping',
+    '龙岩': 'longyan', '龙岩市': 'longyan',
+    '宁德': 'ningde', '宁德市': 'ningde',
+    '福州': 'fuzhou', '福州市': 'fuzhou',
+    '福州': 'fuzhou', '福州市': 'fuzhou',
+}
+
+# 美国城市别名
+_US_CITY_ALIASES = {
+    'sf': 'san francisco', 'san francisco, ca': 'san francisco',
+    'new york, ny': 'new york', 'nyc': 'new york',
+    'los angeles, ca': 'los angeles', 'la': 'los angeles',
+    'chicago, il': 'chicago',
+    'houston, tx': 'houston',
+    'phoenix, az': 'phoenix',
+    'dallas, tx': 'dallas',
+    'austin, tx': 'austin',
+    'seattle, wa': 'seattle',
+    'denver, co': 'denver',
+    'boston, ma': 'boston',
+    'portland, or': 'portland',
+    'atlanta, ga': 'atlanta',
+    'miami, fl': 'miami',
+    'san diego, ca': 'san diego',
+    'washington, dc': 'washington dc',
+    'palo alto, ca': 'palo alto',
+    'mountain view, ca': 'mountain view',
+    'cupertino, ca': 'cupertino',
+    'sunnyvale, ca': 'sunnyvale',
+    'redmond, wa': 'redmond',
+    'bellevue, wa': 'bellevue',
+    'san jose, ca': 'san jose',
+    ' Fremont, ca': 'fremont',
+    'irvine, ca': 'irvine',
+    'sandiego': 'san diego',
+    'la, ca': 'los angeles',
+}
+
+
+def normalize_company(raw: str) -> str:
+    """
+    归一化公司名称：
+    - 去 HTML 标签
+    - Unicode 标准化（NFKC）
+    - 去前后空格
+    - 去常见公司后缀（Inc., LLC, Ltd. 等）
+    - 转小写
+    - 多空格合一
+    """
+    if not raw:
+        return ""
+    # 去 HTML
+    text = re.sub(r'<[^>]+>', '', raw)
+    text = html_module.unescape(text)
+    # Unicode 标准化
+    text = unicodedata.normalize('NFKC', text)
+    # 去前后空格
+    text = text.strip()
+    # 去公司后缀（按长度降序，避免部分匹配）
+    for pattern in _COMPANY_SUFFIX_PATTERNS:
+        text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+    # 去前后空格
+    text = text.strip()
+    # 去逗号
+    text = text.replace(',', '').strip()
+    # 多空格合一
+    text = re.sub(r'\s+', ' ', text)
+    # 转小写
+    text = text.lower()
+    return text
+
+
+def normalize_title(raw: str) -> str:
+    """
+    归一化职位名称：
+    - 去 HTML 标签
+    - Unicode 标准化
+    - 去括号内容（如（校招）、(校招)）
+    - 多空格合一
+    - 转小写
+    - 保留职位级别信息（Senior、Junior 等）
+    """
+    if not raw:
+        return ""
+    # 去 HTML
+    text = re.sub(r'<[^>]+>', '', raw)
+    text = html_module.unescape(text)
+    # Unicode 标准化
+    text = unicodedata.normalize('NFKC', text)
+    # 去括号内容（中英文括号）
+    text = re.sub(r'[（(].*?[）)]', '', text)
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+    # 转小写
+    text = text.lower()
+    return text
+
+
+def normalize_location(raw: str) -> str:
+    """
+    归一化地点：
+    - 去 HTML 标签
+    - Unicode 标准化
+    - 多空格合一
+    - 转小写
+    - 统一标点（逗号+空格）
+    - 中国城市别名映射
+    - 美国城市别名映射
+    - Remote 统一
+    """
+    if not raw:
+        return ""
+    # 去 HTML
+    text = re.sub(r'<[^>]+>', '', raw)
+    text = html_module.unescape(text)
+    # Unicode 标准化
+    text = unicodedata.normalize('NFKC', text)
+    # 多空格合一
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+    # Remote 统一
+    remote_patterns = ['remote', '远程', 'work from home', 'wfh', 'home office']
+    for rp in remote_patterns:
+        if rp.lower() in text.lower():
+            return 'remote'
+    # 转小写
+    text = text.lower()
+    # 统一标点：逗号前后空格
+    text = re.sub(r'\s*,\s*', ', ', text)
+    # 中国城市别名（按长度降序，避免部分匹配）
+    for cn_full, cn_norm in sorted(_CITY_ALIASES.items(), key=lambda x: len(x[0]), reverse=True):
+        if cn_full in text:
+            text = text.replace(cn_full, cn_norm)
+    # 美国城市别名（按长度降序）
+    for us_alias, us_norm in sorted(_US_CITY_ALIASES.items(), key=lambda x: len(x[0]), reverse=True):
+        if us_alias in text:
+            text = text.replace(us_alias, us_norm)
+    return text.strip()
+
+
+async def find_possible_duplicates(db, job: Job, limit: int = 10) -> List[Dict[str, Any]]:
+    """
+    查找可能的重复岗位（候选检测，不自动合并）。
+    使用 normalized_* 字段 + 索引缩小候选集合，再对候选做 rapidfuzz 比较。
+    """
+    try:
+        from rapidfuzz import fuzz, process
+    except ImportError:
+        logger.warning("[V7.1] rapidfuzz 未安装，跳过相似度计算")
+        return []
+
+    if not job.normalized_company or not job.normalized_title:
+        return []
+
+    # 职位级别前缀（用于排除不同级别的岗位）
+    LEVEL_PREFIXES = ['junior', 'senior', 'lead', 'staff', 'principal', 'distinguished', 'fellow', 'associate', 'mid']
+
+    def has_level_prefix(title: str) -> bool:
+        """检查标题是否包含级别前缀"""
+        for prefix in LEVEL_PREFIXES:
+            if title.startswith(prefix + ' '):
+                return True
+        return False
+
+    # 先用数据库字段缩小候选集合
+    query = select(Job).where(
+        Job.normalized_company == job.normalized_company,
+        Job.id != job.id,
+        Job.status == 'active'
+    ).limit(limit * 3)  # 多取一些候选
+
+    result = await db.execute(query)
+    candidates = result.scalars().all()
+
+    if not candidates:
+        return []
+
+    # 对候选做 title 相似度过滤
+    similar = []
+    job_title_norm = job.normalized_title
+    job_loc_norm = job.normalized_location or ""
+    job_has_level = has_level_prefix(job_title_norm)
+
+    for candidate in candidates:
+        cand_title_norm = candidate.normalized_title or ""
+        cand_has_level = has_level_prefix(cand_title_norm)
+
+        # 级别前缀检查：如果一个有级别前缀另一个没有，降低相似度阈值
+        # 例如：Software Engineer vs Senior Software Engineer 不应视为重复
+        title_sim = fuzz.WRatio(job_title_norm, cand_title_norm)
+
+        # 如果级别不同，要求更高的相似度才能视为候选
+        if job_has_level != cand_has_level:
+            # 不同级别：需要 >= 95 才视为候选（避免误判）
+            if title_sim < 95:
+                continue
+            confidence = 'low'  # 不同级别，低置信度
+        else:
+            # 相同级别或都无级别：>= 90 高置信度，>= 80 中置信度
+            if title_sim < 80:
+                continue
+            confidence = 'high' if title_sim >= 90 else 'medium'
+
+        # location 兼容性检查
+        cand_loc = candidate.normalized_location or ""
+        loc_match = True
+        if job_loc_norm and cand_loc:
+            # 如果都是 remote，匹配
+            if job_loc_norm == 'remote' and cand_loc == 'remote':
+                loc_match = True
+            # 如果候选地点包含在 job 地点中，或反之
+            elif job_loc_norm in cand_loc or cand_loc in job_loc_norm:
+                loc_match = True
+            # 如果都包含相同城市名
+            elif job_loc_norm and cand_loc:
+                job_cities = set(job_loc_norm.split(','))
+                cand_cities = set(cand_loc.split(','))
+                if job_cities & cand_cities:
+                    loc_match = True
+            else:
+                loc_match = False
+
+        if not loc_match:
+            continue
+
+        similar.append({
+            'job_id': candidate.id,
+            'source': candidate.source,
+            'source_job_id': candidate.source_job_id,
+            'company': candidate.company,
+            'title': candidate.title,
+            'normalized_title': candidate.normalized_title,
+            'location': candidate.location,
+            'normalized_location': candidate.normalized_location,
+            'title_similarity': title_sim,
+            'confidence': 'high' if title_sim >= 90 else 'medium',
+        })
+
+    # 按相似度排序
+    similar.sort(key=lambda x: x['title_similarity'], reverse=True)
+    return similar[:limit]
+
+
+async def _find_possible_duplicates_async(db, job, limit=10):
+    """异步包装，供同步代码调用"""
+    return find_possible_duplicates(db, job, limit)
 
 
 class JobSourceEngine:

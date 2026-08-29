@@ -116,6 +116,10 @@ class JobCreate(BaseModel):
     last_seen_at: Optional[datetime] = None
     status_changed_at: Optional[datetime] = None
     last_synced_at: Optional[datetime] = None
+    # V7.1 标准化字段
+    normalized_company: Optional[str] = None
+    normalized_title: Optional[str] = None
+    normalized_location: Optional[str] = None
 
 
 class JobResponse(BaseModel):
@@ -131,6 +135,10 @@ class JobResponse(BaseModel):
     title: str
     location: str
     locations: Optional[List[str]] = None  # 标准化地点列表
+    # V7.1 标准化字段
+    normalized_company: Optional[str] = None
+    normalized_title: Optional[str] = None
+    normalized_location: Optional[str] = None
     job_type: str
     salary_range: Optional[dict] = None
     description: str

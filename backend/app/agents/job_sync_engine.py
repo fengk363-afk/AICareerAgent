@@ -12,6 +12,7 @@ from app.db.models import Job, JobSource, JobSyncRecord
 from app.db.database import get_db
 from sqlalchemy import select, update
 from app.agents.job_source_adapters import ADAPTER_REGISTRY, get_adapter
+from app.agents.job_source_engine import normalize_company, normalize_title, normalize_location
 
 
 def _model_to_dict(obj):
@@ -334,6 +335,10 @@ class JobSyncEngine:
                 for key, value in job_data.items():
                     if value is not None and hasattr(existing_job, key):
                         setattr(existing_job, key, value)
+                # V7.1: 更新标准化字段
+                existing_job.normalized_company = normalize_company(existing_job.company)
+                existing_job.normalized_title = normalize_title(existing_job.title)
+                existing_job.normalized_location = normalize_location(existing_job.location)
                 existing_job.last_seen_at = now
                 existing_job.last_synced_at = now
                 # 如果岗位之前是 CLOSED/UNKNOWN，重新激活
@@ -360,6 +365,10 @@ class JobSyncEngine:
                 job_data["last_synced_at"] = now
                 job_data["status"] = "active"
                 job_data["status_changed_at"] = now
+                # V7.1: 生成标准化字段
+                job_data["normalized_company"] = normalize_company(job_data.get("company", ""))
+                job_data["normalized_title"] = normalize_title(job_data.get("title", ""))
+                job_data["normalized_location"] = normalize_location(job_data.get("location", ""))
                 try:
                     job = Job(**job_data)
                     db.add(job)
