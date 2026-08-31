@@ -28,3 +28,4 @@ Thumbs.db
 test_files/*.pdf
 *.log
 CLAUDE.md
+backend/uploads/
