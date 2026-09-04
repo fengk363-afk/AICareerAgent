@@ -27,7 +27,6 @@
                 {{ codeCountdown > 0 ? `${codeCountdown}s` : '获取验证码' }}
               </button>
             </div>
-            <p v-if="demoCode" class="demo-code-notice">演示验证码：{{ demoCode }}（仅用于测试）</p>
           </div>
           <div class="form-group">
             <label class="form-label">验证码</label>
@@ -89,7 +88,6 @@ const registerLoading = ref(false)
 const codeSending = ref(false)
 const codeCountdown = ref(0)
 const errorMsg = ref('')
-const demoCode = ref('')
 
 async function handleRegister() {
   errorMsg.value = ''
@@ -137,7 +135,7 @@ async function handleSendCode() {
   codeSending.value = true
   try {
     const res = await authApi.sendCode(form.value.phone)
-    demoCode.value = res?.data?.code || ''
+    form.value.code = String(res?.code || '')
     codeCountdown.value = 60
     const timer = setInterval(() => {
       codeCountdown.value--
@@ -150,12 +148,3 @@ async function handleSendCode() {
   }
 }
 </script>
-
-<style scoped>
-.demo-code-notice {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: #6b7280;
-  text-align: center;
-}
-</style>
