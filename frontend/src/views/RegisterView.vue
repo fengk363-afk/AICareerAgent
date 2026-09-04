@@ -137,7 +137,7 @@ async function handleSendCode() {
   codeSending.value = true
   try {
     const res = await authApi.sendCode(form.value.phone)
-    demoCode.value = res?.code || ''
+    demoCode.value = res?.data?.code || ''
     codeCountdown.value = 60
     const timer = setInterval(() => {
       codeCountdown.value--
