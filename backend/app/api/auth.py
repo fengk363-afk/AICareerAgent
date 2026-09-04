@@ -38,10 +38,7 @@ async def send_verify_code(data: SendCodeRequest, db: AsyncSession = Depends(get
     code = str(random.randint(100000, 999999))
     _verify_codes[data.phone] = (code, time.time())
 
-    # TODO: 接入短信服务发送验证码
-    # await sms_service.send(data.phone, f"您的验证码是：{code}，5分钟内有效")
-
-    return {"message": "验证码已发送", "phone": data.phone}
+    return {"message": "演示验证码已生成", "phone": data.phone, "code": code}
 
 
 @router.post("/register", response_model=UserResponse, summary="手机号注册")
@@ -52,11 +49,10 @@ async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="该手机号已注册")
 
-    # 验证验证码（预留接口，暂不强制验证）
-    # if data.verify_code:
-    #     stored = _verify_codes.get(data.phone)
-    #     if not stored or stored[0] != data.verify_code or time.time() - stored[1] > 300:
-    #         raise HTTPException(status_code=400, detail="验证码错误或已过期")
+    # 验证验证码
+    stored = _verify_codes.get(data.phone)
+    if not stored or stored[0] != data.verify_code or time.time() - stored[1] > 300:
+        raise HTTPException(status_code=400, detail="验证码错误或已过期")
 
     # 创建用户
     user = User(
