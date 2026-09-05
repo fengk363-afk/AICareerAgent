@@ -137,11 +137,22 @@ async function handleSendCode() {
   codeSending.value = true
   try {
     const res = await authApi.sendCode(form.value.phone)
-    form.value.code = String(res?.code || '')
+    const code = String(res?.code || '')
+    console.log('[VERIFY] API response:', JSON.stringify(res))
+    console.log('[VERIFY] code:', code)
+    form.value.code = code
+    console.log('[VERIFY] form.code before DOM:', form.value.code)
+    console.log('[VERIFY] input ref:', verificationCodeInput.value)
     await nextTick()
     if (verificationCodeInput.value) {
-      verificationCodeInput.value.value = form.value.code
-      verificationCodeInput.value.dispatchEvent(new Event('input', { bubbles: true }))
+      const inputEl = verificationCodeInput.value
+      console.log('[VERIFY] DOM value before:', inputEl.value)
+      HTMLInputElement.prototype.value.set.call(inputEl, code)
+      inputEl.dispatchEvent(new Event('input', { bubbles: true }))
+      console.log('[VERIFY] DOM value after:', inputEl.value)
+      console.log('[VERIFY] form.code after:', form.value.code)
+    } else {
+      console.warn('[VERIFY] input ref is null!')
     }
     codeCountdown.value = 60
     const timer = setInterval(() => {
