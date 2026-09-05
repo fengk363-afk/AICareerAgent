@@ -31,6 +31,7 @@
           <div class="form-group">
             <label class="form-label">验证码</label>
             <input
+              ref="verificationCodeInput"
               v-model="form.code"
               type="text"
               maxlength="6"
@@ -75,7 +76,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 import { authApi } from '../api/index.js'
@@ -84,6 +85,7 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const form = ref({ phone: '', code: '', password: '', fullName: '' })
+const verificationCodeInput = ref(null)
 const registerLoading = ref(false)
 const codeSending = ref(false)
 const codeCountdown = ref(0)
@@ -136,6 +138,11 @@ async function handleSendCode() {
   try {
     const res = await authApi.sendCode(form.value.phone)
     form.value.code = String(res?.code || '')
+    await nextTick()
+    if (verificationCodeInput.value) {
+      verificationCodeInput.value.value = form.value.code
+      verificationCodeInput.value.dispatchEvent(new Event('input', { bubbles: true }))
+    }
     codeCountdown.value = 60
     const timer = setInterval(() => {
       codeCountdown.value--
